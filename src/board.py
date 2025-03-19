@@ -361,7 +361,7 @@ class Board():
         ''' When Pacman is on the 15th row and has a x of 0 or 27,
             then he is at the specific edge of the board that allows
             crossing from one side to another, if so return True. '''
-        return (y == 14 and x == 0) or (y == 14 and x == 27)
+        return y == 14 and (x == 0 or x == 27)
     
     def square_height(self) -> float:
         ''' Returns the height of each individual square in the level. '''
