@@ -1,11 +1,20 @@
+# ⚠️ We do not own the initial project ⚠️
+
+**Warning :** This repository is forked from [https://github.com/aksalcido/Pacman]. We used it to add IA to the game (school project). In this way we'd like to thank aksalcido for his work.
+
+---
+
 # Pacman
+
 A Python influenced-version of the well known arcade game, Pacman. The game immediately starts when the `main.pyw` file is ran. The program does not contain a Main Menu, but does include levels and acceleration of the game. Losing all the lives results in a Game Over screen, and the program is done.
 
 # Requirements
+
 - Python must be installed: https://www.python.org/downloads/ - (Python 2 not supported)
 - Latest version of Pillow must be installed: https://pillow.readthedocs.io/en/stable/
 
 # Libraries Used
+
 `tkinter` - Graphics library that allows the game to be playable with constant updates <br />
 `os`- Supported the GameImage class, and allowed images to be organized in it's own directory <br />
 `PIL.ImageTk` - Handles the special images used for Pacman, Enemies, and Pickup objects <br />
@@ -13,6 +22,7 @@ A Python influenced-version of the well known arcade game, Pacman. The game imme
 `random` - Allowed random movement for certain enemies that had their own unique movement <br />
 
 # Instructions / Hot Keys
+
 <h4> Movement </h4>
 
 <h4> Player Movement </h4>
@@ -32,17 +42,22 @@ lead to Pinky chasing from behind.
 <img src='static/images/inky.png' title='' width='' alt='' /> Inky can have an equal chance of any of the previous Ghost's movement for
 any duration amount of time.
 
-
-# Demonstration #
+# Demonstration
 
 ## Acquiring Points and Boost
+
 <img src='static/gifs/boost.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
 
 ## Gameplay
+
 <img src='static/gifs/gameplay2.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
 
 ## Level Completion and Transitioning
+
 <img src='static/gifs/transition.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
 
 ## Gameover
+
 <img src='static/gifs/gameover.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
+
+# Added IA Algorithms
