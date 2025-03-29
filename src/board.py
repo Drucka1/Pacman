@@ -420,7 +420,7 @@ class Board():
 
         self.Gamestate = saved_gamestate
 
-    def _pacman_board(self, height, width) -> [list]:
+    def _pacman_board(self, height, width):
         ''' Takes the board of numbers, and easily sets up the coordinates of each object,
             as manually typing each object with their coordinates would take way too long. '''
         game_board = []
@@ -441,7 +441,10 @@ class Board():
                     game_row.append( Pickup(j, i, self.images, True) )
 
                 # 5, 6, 7, 8
-                elif self[i][j] == Enemy.inky or self[i][j] == Enemy.blinky or self[i][j] == Enemy.pinky or self[i][j] == Enemy.clyde:
+                elif ( self[i][j] == Enemy.inky 
+                    or self[i][j] == Enemy.blinky 
+                    or self[i][j] == Enemy.pinky 
+                    or self[i][j] == Enemy.clyde ):
                     game_row.append( Enemy(j, i, self[i][j], self.images) )
 
                 # 9

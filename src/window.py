@@ -5,6 +5,7 @@ from pacman import Pacman
 from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
+from heuristique_Clement import *
 
 class Window():
 
@@ -220,6 +221,8 @@ class Window():
             self.board.update_directions()
             self.board.update_board()
             self._check_for_completion()
+            
+            print(f"Score de l'état actuel : {heuristique_distance(self.board.Gamestate)}") 
 
             if not self.board.game_over:
                 self._adjust_board()

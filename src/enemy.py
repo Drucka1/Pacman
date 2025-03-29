@@ -1,9 +1,8 @@
 from character import Character
 from wall import Wall
-import pacman
 from collections import deque
 from random import random
-
+    
 class Enemy(Character):
     inky   = 5
     blinky = 6
@@ -25,7 +24,6 @@ class Enemy(Character):
         if enemy_type == Enemy.inky or enemy_type == Enemy.clyde: # Only Inky and Clyde require these Attributes
             self.movement_turns = 15
             self.last_choice = None
-
         
     def discard_pickup(self) -> None:
         ''' This function is called when an enemy was holding a pickup and then discards
@@ -61,7 +59,6 @@ class Enemy(Character):
         else:
             return self.breadth_first_search(board, start, self.start_location[1], self.start_location[0])[:-1]
 
-
     def determineDirection(self, board, pacman) -> None:
         ''' Direction is determined by the enemy type. Since each enemy type
             has their own unique game movement. '''
@@ -79,13 +76,19 @@ class Enemy(Character):
         elif self.enemy_type == Enemy.clyde:
             self.clyde_movement(board)
 
-    # Inky Movement Functions #
+# ################################################################################################################## #
+# ############################################ Inky Movement Functions ############################################# #
+# ################################################################################################################## #
+
     def blinky_movement(self, board, start, pacman) -> None:
         ''' Blinky's movement is to directly chase Pacman on the board. '''
         path = self.determine_path(board, start, pacman.y, pacman.x)
         self.path_finding_direction(path)
+    
+# ################################################################################################################## #
+# ############################################ Blinky Movement Functions ############################################ #
+# ################################################################################################################## #
 
-    # Blinky Movement Functions #
     def inky_movement(self, board, start, pacman) -> None:
         ''' Inky's movement differentiates between the other three ghost. So we use
             random() from the random library to determine which movement he will follow,
@@ -102,8 +105,10 @@ class Enemy(Character):
         elif choice <= 1:
             self.pinky_movement(board, start, pacman)
 
-        
-    # Pinky Movement Functions #
+# ################################################################################################################## #
+# ############################################ Pinky Movement Functions ############################################ #
+# ################################################################################################################## #
+
     def pinky_movement(self, board, start, pacman):
         ''' Pinky's movement is meant to ambush, so we have the entire pacman object
             so that are we able to look at his direction and coordinates. '''
@@ -111,7 +116,6 @@ class Enemy(Character):
         path = self.determine_path(board, start, endpoint_y, endpoint_x)
 
         self.path_finding_direction(path)
-
 
     def pinky_endpoints(self, board, pacman) -> tuple:
         ''' This function primarily just returns the endpoints from the method
@@ -148,7 +152,6 @@ class Enemy(Character):
             Pinky and Pacman. '''
         return abs(self.y - end_y) < limit and abs(self.x - end_x) < limit
 
-
     def ambush_loop(self, board, dy, dx, endpoint_y, endpoint_x, ambush_limit):
         ''' If the distance between Pinky and Pacman is too great, than this function is called to
             find a distance within ambush_limit ahead of Pacman so that Pinky can ambush him. '''
@@ -165,14 +168,14 @@ class Enemy(Character):
 
         return endpoint_y, endpoint_x
     
-
-    
     def pinkys_movement_not_within_board(self, board, endpoint_dy, endpoint_dx) -> bool:
         ''' Returns a boolean if the endpoints are not within the board boundaries. '''
         return not ( ( 0 <= endpoint_dy <= len(board) - 1 ) and ( 0 <= endpoint_dx <= board.board_width() - 1) )
-    
-    
-    # Clyde Movement Functions #
+
+# ################################################################################################################## #
+# ############################################ Clyde Movement Functions ############################################ #
+# ################################################################################################################## #
+
     def clyde_movement(self, board) -> None:
         ''' Clyde's movement is random, and he does not chase or ambush. That
             is why it is not required for him to have any endpoint arguments. '''
@@ -210,7 +213,10 @@ class Enemy(Character):
             but will never stay at 0, or be less than 0. '''
         self.movement_turns -= 1
 
-    # Direction and Movement Functions #
+# ################################################################################################################## #
+# ######################################## Direction and Movement Functions ######################################## #
+# ################################################################################################################## #
+
     def random_direction(self, choice) -> None:
         ''' Splits the chances into 1/4 for each direction, and is randomly chosen. '''
         if choice <= .25:
@@ -243,7 +249,7 @@ class Enemy(Character):
         elif self.direction == 'Up':
             return type(board[y - 1][x]) != Wall
 
-    def random_choice(self) -> int or float:
+    def random_choice(self):
         ''' Inky and clyde have unstable movement, but the movement choices occur every 15 updates.
             So the last choice is saved to keep it going for 15 updates in a row. '''
         if self.movement_turns == 15 or self.last_choice == None:
@@ -273,7 +279,10 @@ class Enemy(Character):
             self.movement()
             self.slowed_down = True
     
-    # Pathfinding Functions #
+# ################################################################################################################## #
+# ############################################# Pathfinding Functions ############################################## #
+# ################################################################################################################## #
+
     def path_finding_direction(self, path):
         ''' This function is what changes the direction depending on the next location
             the enemy needs to go. Only one case will follow each time and then once that
@@ -335,7 +344,6 @@ class Enemy(Character):
             return 1
         else:
             return 0
-
 
     def not_empty_path(self, path) -> bool:
         ''' Returns a boolean if the path is not empty. '''
