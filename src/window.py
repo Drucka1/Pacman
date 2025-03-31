@@ -5,6 +5,7 @@ from pacman import Pacman
 from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
+from ai_controller import PacmanAI
 
 class Window():
 
@@ -40,6 +41,12 @@ class Window():
         # Pacman Board Initialized #
         self.board = Board(self._width, self._height, self._images)
         self.board.new_level()          # Initializes a new level for Pacman
+
+        self.pacman_ai = PacmanAI(self.board)
+
+        self.autonomous_mode = False
+
+        self._master.bind('<a>', self._toggle_autonomous_mode)
 
     # Drawing Functions #
     def _draw_board(self) -> None:
@@ -217,6 +224,12 @@ class Window():
         '''
 
         if not self._pause:
+            if self.autonomous_mode:
+                best_direction = self.pacman_ai.choose_direction()
+                self.board.pacman.change_direction(best_direction)
+                self.board.pacman.direction_image(self._images)
+            
+            
             self.board.update_directions()
             self.board.update_board()
             self._check_for_completion()
@@ -234,3 +247,5 @@ class Window():
         self._master.after(2000, self.update) # put again here to allow mainloop() to still occur and also call gameloop
         self._master.mainloop()
 
+    def _toggle_autonomous_mode(self, event: tk.Event) -> None:
+        self.autonomous_mode = not self.autonomous_mode
