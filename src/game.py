@@ -6,7 +6,10 @@ class Game:
         self.scatter_mode = False
         self.scatter_chrono = 0
         self.score = 0
-        self.width,self.height,self.layout = self.generate_maze()
+        
+        self.layout = self.generate_maze()
+        self.width = len(self.layout[0])
+        self.height = len(self.layout)
         
         self.pacman = Pacman()
         self.blinky = Blinky(Coordinate(12,15))
@@ -15,6 +18,12 @@ class Game:
         self.clyde = Clyde(Coordinate(15,15))
         self.ghosts = [self.blinky, self.pinky, self.inky, self.clyde]
         
+    def pellets(self):
+        return [ Coordinate(y,x) for x,row in enumerate(self.layout) for y,cell in enumerate(row) if cell == 1 ]
+    
+    def boosts(self):
+        return [ Coordinate(y,x) for x,row in enumerate(self.layout) for y,cell in enumerate(row) if cell == 2 ]
+    
     # Used to update the scatter mode
     def update(self):
         if self.scatter_mode:
@@ -64,7 +73,7 @@ class Game:
             [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
             [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
-        return len(maze[0]), len(maze), maze
+        return maze
 
     def check_collision(self, position):
         return self.layout[position.y][position.x] == 0
@@ -72,6 +81,10 @@ class Game:
     def display_maze(self):
         for row in self.layout:
             print(''.join(row))
+            
+    def move_ghost(self):
+        for ghost in self.ghosts:
+            ghost.move(self)
             
     def get_valid_direction(self, position):
         valid_directions = []
@@ -96,11 +109,15 @@ class Game:
     def get_next_maze(self, pacman, inky, pinky, blinky, clyde):
         self.get_valid_direction(pacman.position)
   
-    def is_game_over(self):
+    def isWin(self):
         return (
-            self.pacman.position == self.blinky.position or
-            self.pacman.position == self.pinky.position or
-            self.pacman.position == self.inky.position or
-            self.pacman.position == self.clyde.position or
-            not any(1 in row for row in self.layout)
+            not any(1 in row for row in self.layout) and 
+            all(self.pacman.position != ghost.position for ghost in self.ghosts)
         )
+
+    def isLose(self):
+        return any(self.pacman.position == ghost.position for ghost in self.ghosts)
+
+    def isOver(self):
+        return self.isLose() or self.isWin()
+        

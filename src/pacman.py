@@ -2,6 +2,8 @@ import pygame
 from game import Game
 from ghost import *
 from utils import *
+from heuristique import *
+from alpha_beta import *
 
 class PacmanGame:
     def __init__(self, width, height):
@@ -41,12 +43,9 @@ class PacmanGame:
             self.game.pacman.position = new_position
             self.game.eat(self.game.pacman.position)
 
-        self.game.inky.move(self.game)
-        self.game.pinky.move(self.game)
-        self.game.blinky.move(self.game)
-        self.game.clyde.move(self.game)
+        self.game.move_ghost()
         
-        if self.game.is_game_over():
+        if self.game.isOver():
             if not any(1 in row for row in self.game.layout): print("Gagné")
             else : print("Perdu")
             self.running = False
@@ -80,8 +79,9 @@ class PacmanGame:
         pygame.display.flip()
 
     def run(self):
-        heur = Simple_Heuristique()
-        a_b = Alpha_Beta(heur)
+        heuristique = HeuristiqueLenteMaisOk()
+        #heuristique = HeuristiqueSimple()
+        alpha_beta = Alpha_Beta(heuristique)
         
         while self.running:
             self.handle_input()
@@ -89,7 +89,7 @@ class PacmanGame:
             self.render()
             
             # Profondeur max 3
-            _,direction = a_b.run(Alpha_Beta_Leaf(self.game), 3, -float("inf"), float("inf"), True)
+            _,direction = alpha_beta.run(Alpha_Beta_Leaf(self.game), 10, -float("inf"), float("inf"), True)
             self.game.pacman.direction = direction
             
             #self.handle_input()
