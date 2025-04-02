@@ -89,7 +89,7 @@ class PacmanGame:
             self.render()
             
             # Profondeur max 3
-            _,direction = alpha_beta.run(Alpha_Beta_Leaf(self.game), 10, -float("inf"), float("inf"), True)
+            _,direction = alpha_beta.run(Alpha_Beta_Leaf(self.game), 9, -float("inf"), float("inf"), True)
             self.game.pacman.direction = direction
             
             #self.handle_input()
