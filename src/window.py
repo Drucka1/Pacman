@@ -5,7 +5,7 @@ from pacman import Pacman
 from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
-from heuristique_Clement import *
+from heuristique import *
 
 class Window():
 

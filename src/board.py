@@ -88,8 +88,6 @@ class Board():
         else:
             self[y][x] = None
 
-
-    
     def check_for_gameover(self):
         ''' This function mainly checks for the progress of Pacman. If Pacman
             dies and is out of lives, then the game is over. Otherwise, respawns
