@@ -1,6 +1,5 @@
 import random
 from utils import *
-from maze import *
 from collections import deque
 
 MOVEMENT_TURN = 20
@@ -42,29 +41,29 @@ class Ghost:
         return Direction.STOP
         
 class Blinky(Ghost):
-    def __init__(self, start_position, width):
+    def __init__(self, start_position):
         super().__init__(start_position, "red")
 
     # Chase Pacman
-    def move(self, pacman_position, maze):
+    def move(self, maze):
         if maze.scatter_mode :
             self.position += self.get_direction(self.original_position,maze).value
         else :
-            self.position += self.get_direction(pacman_position,maze).value
+            self.position += self.get_direction(maze.pacman.position,maze).value
             
 class Pinky(Ghost):
-    def __init__(self, start_position, height, width):
+    def __init__(self, start_position):
         super().__init__(start_position, "pink")
 
     # Ambush Pacman
-    def move(self, pacman_position, pacman_direction, maze):
+    def move(self, maze):
         # Pinky targets 5 spaces ahead of Pac-Man
         if maze.scatter_mode :  
             self.position += self.get_direction(self.original_position,maze).value
             return
-        target = pacman_position+5*pacman_direction.value
-        if not maze.is_valid_position(target) or pacman_position.distance(self.position) < 7:
-            self.position += self.get_direction(pacman_position, maze).value
+        target = maze.pacman.position+5*maze.pacman.direction.value
+        if not maze.is_valid_position(target) or maze.pacman.position.distance(self.position) < 7:
+            self.position += self.get_direction(maze.pacman.position, maze).value
         else :
             self.position += self.get_direction(target, maze).value
 
@@ -74,7 +73,7 @@ class Inky(Ghost):
         self.counter = 0
         self.behavior = None
 
-    def move(self, pacman_position, pacman_direction, maze):
+    def move(self, maze):
         if maze.scatter_mode :  
             self.position += self.get_direction(self.original_position,maze).value
             return
@@ -89,17 +88,17 @@ class Inky(Ghost):
         else:
             if self.behavior == "pinky":
                 # Pinky-like behavior: target 4 spaces ahead of Pac-Man
-                target_position = pacman_position + 4 * pacman_direction.value
+                target_position = maze.pacman.position + 4 * maze.pacman.direction.value
             elif self.behavior == "blinky":
                 # Blinky-like behavior: target Pac-Man's position
-                target_position = pacman_position
+                target_position = maze.pacman.position
             elif self.behavior == "clyde":
                 # Clyde-like behavior: target a random tile far from Inky
                 if self.counter % 20 == 1:  # Recalculate target at the start of behavior
                     self.target = self.random_target(maze)
                 target_position = self.target
             else:
-                target_position = pacman_position  # Default to Pac-Man's position
+                target_position = maze.pacman.position  # Default to Pac-Man's position
 
             self.position += self.get_direction(target_position, maze).value
 
@@ -115,7 +114,7 @@ class Inky(Ghost):
                 return random_target
 
 class Clyde(Ghost):
-    def __init__(self, start_position, height):
+    def __init__(self, start_position):
         super().__init__(start_position, "orange")
         self.counter = 0
         self.target = None
