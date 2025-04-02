@@ -15,8 +15,8 @@ class Window():
         the GUI accordingly to the progression of the game, by the use of the Board
         object attribute initialized here. '''
         self._master = master
-        self._width = 1000
-        self._height = 850
+        self._width = 800
+        self._height = 650
         self._images = GameImage()      # All images used for the game are stored as a GameImage() object
 
         # All Tkinter Settings Initialized #
