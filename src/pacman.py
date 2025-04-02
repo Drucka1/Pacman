@@ -1,132 +1,98 @@
-from character import Character
-from enemy import Enemy
-from wall import Wall
-from pickup import Pickup
+import pygame
+from maze import Maze
+from ghost import *
+from utils import *
 
-class Pacman(Character):
-    pacman = 9
-    ticks = 50
-    no_score = 0
-    level_one = 1
-    three_lives = 3
-    
-    def __init__(self, x, y, images, direction = 'Left'):
-        Character.__init__(self, x, y, direction)
-        self.score = Pacman.no_score
-        self.life_score = Pacman.no_score
-        self.lives = Pacman.three_lives
-        self.level = Pacman.level_one
+class Pacman:
+    def __init__(self):
+        self.position = Coordinate(14,23)  # Starting position
+        self.direction = Direction.STOP
 
-        self.last_direction, self.next_direction = 'Left', None
-        self.is_respawning = False
-        self.direction_image(images)
+class PacmanGame:
+    def __init__(self, width, height):
+        pygame.init()
+        self.width = width
+        self.height = height
+        self.screen = pygame.display.set_mode((width, height))
+        pygame.display.set_caption("Pacman")
+        self.clock = pygame.time.Clock()
 
-        self.invulnerable_ticks = Pacman.ticks
-    
-    # Game Progression Functions #
-    def contact(self, gameObj):
-        ''' Updates Pacman's score when he comes into contact with another
-            game object, but also handles the two special cases if it's a
-            boost pickup, and if it's an enemy. '''
+        self.maze = Maze()  # Adjust based on your tile size
+        self.pacman = Pacman()
+        self.blinky = Blinky(Coordinate(12,15), self.maze.width)
+        self.pinky = Pinky(Coordinate(13,15), self.maze.height, self.maze.width)
+        self.inky = Inky(Coordinate(14,15))  # Pass blinky instance
+        self.clyde = Clyde(Coordinate(15,15), self.maze.height)
+        self.ghosts = [self.blinky, self.pinky, self.inky, self.clyde]
 
-        if type(gameObj) == Pickup:
-            if gameObj.boost:
-                self.score += 50
-                self.boost_picked_up()
+        self.tile_size = min(self.width // self.maze.width, self.height // self.maze.height)
+        self.running = True
+
+    def handle_input(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    self.pacman.direction = Direction.LEFT
+                elif event.key == pygame.K_RIGHT:
+                    self.pacman.direction = Direction.RIGHT
+                elif event.key == pygame.K_UP:
+                    self.pacman.direction = Direction.UP
+                elif event.key == pygame.K_DOWN:
+                    self.pacman.direction = Direction.DOWN
+
+    def update(self):
+        # Update Pac-Man's position
+        new_position = self.pacman.position + self.pacman.direction.value
         
-            else:
-                self.score += 10
+        self.maze.update()
 
-        elif type(gameObj) == Enemy:
-            if self.invulnerable:
-                self.score += 100
+        if not self.maze.check_collision(new_position):
+            self.pacman.position = new_position
+            self.maze.eat(self.pacman.position)
 
-            else:
-                self.death = True
+        self.inky.move(self.pacman.position, self.pacman.direction, self.maze)
+        self.pinky.move(self.pacman.position, self.pacman.direction, self.maze)
+        self.blinky.move(self.pacman.position, self.maze)
+        self.clyde.move(self.maze)
 
-    def respawn(self, images) -> None:
-        ''' When Pacman needs to respawn, the level is restarted, his image is displayed,
-            and his death attribute is no longer True. '''
-        self.restart_level()
-        self.direction_image( images )
-        self.death = False
+    def render(self):
+        self.screen.fill((0, 0, 0))  # Black background
 
-    def restart_level(self) -> None:
-        ''' On death, original values are restored. '''
-        self.initial_position()
-        self.change_direction('Left')
-        self.next_direction = None
-        self.is_respawning = True
+        # Draw the maze
+        for y, row in enumerate(self.maze.layout):
+            for x, cell in enumerate(row):
+                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
+                if cell == 0:
+                    pygame.draw.rect(self.screen, (0, 0, 255), rect)  # Blue walls
+                elif cell == 1:
+                    # Draw small pellet
+                    pygame.draw.circle(self.screen, (255, 255, 255), rect.center, self.tile_size // 8)
+                elif cell == 2:
+                    # Draw large pellet
+                    pygame.draw.circle(self.screen, (255, 255, 255), rect.center, self.tile_size // 4)
 
-    def boost_picked_up(self) -> None:
-        ''' This function checks if Pacman is invulnerable when he picks up
-            a boost. If he is then the counter is refreshed and he remains
-            invulnerable for a longer time. Otherwise, he becomes invulnerable
-            if he wasn't previously. '''
-        if not self.invulnerable:
-            self.invulnerability()
-        else:
-            self.invulnerable_ticks = Pacman.ticks - 1
-            
-    # Attribute Functions #
-    def level_up(self, score, lives, level) -> None:
-        self.score, self.lives, self.level = score, lives, level
-        
-    def lose_life(self):
-        ''' When Pacman dies, his lives attribute is decremented by one. '''
-        self.lives -= 1
-        
-    def out_of_lives(self) -> bool:
-        ''' Returns True if Pacman does not have anymore lives, otherwise false. '''
-        return self.lives == 0
+        # Draw Pac-Man
+        pacman_rect = pygame.Rect(self.pacman.position.x * self.tile_size, self.pacman.position.y * self.tile_size, self.tile_size, self.tile_size)
+        pygame.draw.ellipse(self.screen, (255, 255, 0), pacman_rect)  # Yellow Pac-Man
+
+        # Draw ghosts
+        for ghost in self.ghosts:
+            ghost_rect = pygame.Rect(ghost.position.x * self.tile_size, ghost.position.y * self.tile_size, self.tile_size, self.tile_size)
+            pygame.draw.rect(self.screen, ghost.color, ghost_rect)
+
+        pygame.display.flip()
+
+    def run(self):
+        while self.running:
+            self.handle_input()
+            self.update()
+            self.render()
+            self.clock.tick(8)  # Limit frame rate to 10 FPS
+        pygame.quit()
+
+if __name__ == "__main__":
+    game = PacmanGame(560, 620)
+    game.run()
     
-    def boost_running_out(self) -> None:
-        ''' Decrements invulnerable_ticks by 1 each time an update is called. '''
-        self.invulnerable_ticks -= 1
-    
-    def normal_state(self) -> None:
-        ''' When Pacman is not invulnerable, his ticks are refreshed to default,
-            and his invulnerable state is set to False by the invulnerability() call.'''
-        self.invulnerable_ticks = Pacman.ticks
-        self.invulnerability()
-        
-    # Direction Functions #
-    def change_direction(self, direction) -> None:
-        ''' Changes the direction of Pacman with a given direction argument. '''
-        self.last_direction = self.direction
-        self.direction = direction
-    
-    def has_upcoming_direction(self) -> bool:
-        ''' If next_direction has a direction, it returns True, else False. '''
-        return self.next_direction is not None
-        
-    def crossed_boundary(self):
-        ''' This function controls '''
-        if self.direction == 'Left':
-            self.change_location(27, 14)
-        else:
-            self.change_location(0, 14)
-
-    # Display Functions #
-    def display_score(self) -> str:
-        return f'Score: {self.score}'
-
-    def display_lives(self) -> str:
-        return f'Lives: {self.lives}'
-
-    def display_level(self) -> str:
-        return f'Level: {self.level}'
-    
-    def direction_image(self, images):
-        if self.direction == 'Left':
-            self._image = images.return_image('pacmanL')
-
-        elif self.direction == 'Right':
-            self._image = images.return_image('pacmanR')
-
-        elif self.direction == 'Down':
-            self._image = images.return_image('pacmanD')
-
-        elif self.direction == 'Up':
-            self._image = images.return_image('pacmanU')
-
