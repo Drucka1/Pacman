@@ -80,13 +80,16 @@ class PacmanGame:
         pygame.display.flip()
 
     def run(self):
+        heur = Simple_Heuristique()
+        a_b = Alpha_Beta(heur)
+        
         while self.running:
             self.handle_input()
             # Call alpha_beta with the correct parameters
             self.render()
             
             # Profondeur max 3
-            _,direction = alpha_beta(Alpha_Beta_Leaf(self.game), 3, -float("inf"), float("inf"), True)
+            _,direction = a_b.run(Alpha_Beta_Leaf(self.game), 3, -float("inf"), float("inf"), True)
             self.game.pacman.direction = direction
             
             #self.handle_input()
