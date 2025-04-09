@@ -442,7 +442,6 @@ class Board():
 
                 # 5, 6, 7, 8
                 elif self[i][j] == Enemy.inky or self[i][j] == Enemy.blinky or self[i][j] == Enemy.pinky or self[i][j] == Enemy.clyde:
-                    print("enemy type:" + str(self[i][j]) + ", pos: " + str((j,i)))
                     game_row.append( Enemy(j, i, self[i][j], self.images) )
 
                 # 9
