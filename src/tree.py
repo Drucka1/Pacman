@@ -101,7 +101,8 @@ class Tree():
                     Tree.modified_movement_function(child, 'inky', inky_direction)
                     Tree.modified_movement_function(child, 'pinky', pinky_direction)
                     Tree.modified_movement_function(child, 'blinky', blinky_direction)
-                    Tree.modified_movement_function(child, 'clyde', clyde_direction)
+                    if clyde_direction is not None:
+                        Tree.modified_movement_function(child, 'clyde', clyde_direction)
                     
                     #print(inky_direction, pinky_direction, blinky_direction, clyde_direction)
                     #print(child.pos['inky'], child.pos['pinky'], child.pos['blinky'], child.pos['clyde'])
@@ -399,7 +400,7 @@ if __name__ == "__main__":
     board.new_level()
     test_tree = Tree(0, [])
 
-    Tree.build_pacman_tree(test_tree, board, 20, True, None)
+    Tree.build_pacman_tree(test_tree, board, 16, True, None)
 
     
 
