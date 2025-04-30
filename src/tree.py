@@ -56,7 +56,7 @@ class Tree():
     def build_pacman_tree(cls, tree, initial_board, depth, is_packman_turn, heuristique):
         #print(depth, tree.pos['pacman'], is_packman_turn)
         if depth == 0:
-            tree.value = depth # insérer heuristique
+            tree.value = cls.pacman_heuristic(tree, initial_board) if heuristique else depth
             return
         elif tree.pacman_lives_number == 0:
             tree.value = - math.inf
@@ -377,6 +377,54 @@ class Tree():
         
         for i, child in enumerate(self.children):
             child.display(level + 1, f"Child {i+1}: ")
+    
+    @classmethod
+    def pacman_heuristic(cls, tree, board):
+        if tree.pacman_lives_number == 0:
+            return -10000
+        
+        pickups = []
+        ghosts = []
+        boost_pickups = []
+        pacman_pos = tuple(tree.pos['pacman'])
+
+        for game_obj in board.game_objects:
+            obj_pos = (game_obj.x, game_obj.y)
+            if type(game_obj).__name__ == 'Pickup':
+                if game_obj.boost:
+                    boost_pickups.append(obj_pos)
+                else:
+                    pickups.append(obj_pos)
+            elif type(game_obj).__name__ == 'Enemy':
+                ghosts.append(obj_pos)
+        
+        closest_pickup_dist = cls._find_closest_object_distance(pacman_pos, pickups) if pickups else 100
+
+        closest_ghost_dist = cls._find_closest_object_distance(pacman_pos, ghosts) if ghosts else 0
+        ghost_factor = closest_ghost_dist if not tree.is_enemy_invulnerable else 20 - closest_ghost_dist
+
+        closest_boost_dist = cls._find_closest_object_distance(pacman_pos, boost_pickups) if boost_pickups and not tree.is_enemy_invulnerable else 100
+
+        score = (
+            + 50 * (1.0 / (closest_pickup_dist + 1))
+            + 30 * ghost_factor
+            + 40 * (1.0 / (closest_boost_dist + 1))
+            + 20 * tree.pacman_lives_number
+        )
+
+        return score
+    
+    @classmethod
+    def _find_closest_object_distance(cls, pos, objects_list):
+        if not objects_list:
+            return 100
+        
+        min_dist = float('inf')
+        for obj_pos in objects_list:
+            dist = abs(pos[0] - obj_pos[0]) + abs(pos[1] - obj_pos[1])
+            min_dist = min(min_dist, dist)
+        
+        return min_dist
 
 if __name__ == "__main__":
     """child1 = Tree(0, [Tree(0, []), Tree(0, []), Tree(0, [])])

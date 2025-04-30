@@ -1,10 +1,12 @@
 import tkinter as tk
+import math
 from board import Board
 from gameImage import GameImage
 from pacman import Pacman
 from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
+from tree import Tree
 
 class Window():
 
@@ -17,6 +19,11 @@ class Window():
         self._width = 1000
         self._height = 850
         self._images = GameImage()      # All images used for the game are stored as a GameImage() object
+
+        self._ai_mode = False
+
+        self._ai_button = tk.Button(self._master, text="Toggle AI", command=self._toggle_ai)
+        self._ai_button.grid(row=2, column=0, sticky=tk.W)
 
         # All Tkinter Settings Initialized #
         self._canvas = tk.Canvas(self._master, width = self._width, height = self._height, background="black")
@@ -207,6 +214,13 @@ class Window():
             self._master.unbind('<Up>')
             self._master.unbind('<Down>')
             self._master.unbind('<Escape>')
+    
+    def _toggle_ai(self):
+        self._ai_mode = not self._ai_mode
+        if self._ai_mode:
+            self._ai_button.config(text="AI: ON")
+        else:
+            self._ai_button.config(text="AI: OFF")
 
     # Main Functions #
     def update(self) -> None:
@@ -217,6 +231,9 @@ class Window():
         '''
 
         if not self._pause:
+            if self._ai_mode and not self.board.game_over:
+                self._compute_ai_move()
+            
             self.board.update_directions()
             self.board.update_board()
             self._check_for_completion()
@@ -228,9 +245,39 @@ class Window():
             self._canvas.create_image(self._width / 2, self._height / 2,
                                       image = self._images.return_image('game_paused') )
             self.check_pause()
+    
+    def _compute_ai_move(self):
+        root_tree = Tree(0, [])
+
+        root_tree.pos['pacman'] = [self.board.pacman.x, self.board.pacman.y]
+
+        for enemy in self.board.enemies:
+            root_tree.pos[enemy.enemy_type] = [enemy.x, enemy.y]
+        
+        Tree.build_pacman_tree(root_tree, self.board, 4, True, True)
+
+        Tree.alpha_beta_calculus(root_tree, 4, -math.inf, math.inf, True)
+
+        best_move = None
+        best_value = -math.inf
+
+        for i, child in enumerate(root_tree.children):
+            if child.value > best_value:
+                best_value = child.value
+                if i == 0:
+                    best_move = 'Left'
+                elif i == 1:
+                    best_move = 'Right'
+                elif i == 2:
+                    best_move = 'Up'
+                else:
+                    best_move = 'Down'
+        
+        if best_move:
+            self.board.pacman.change_direction(best_move)
+            self.board.pacman.direction_image(self._images)
 
     def run(self) -> None:
         self.delay_beginning()
         self._master.after(2000, self.update) # put again here to allow mainloop() to still occur and also call gameloop
         self._master.mainloop()
-
