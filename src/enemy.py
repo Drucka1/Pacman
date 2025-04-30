@@ -69,13 +69,10 @@ class Enemy(Character):
         
         if self.enemy_type == Enemy.blinky:
             self.blinky_movement(board, start, pacman)
-
         elif self.enemy_type == Enemy.inky:
             self.inky_movement(board, start, pacman)
-        
         if self.enemy_type == Enemy.pinky:
             self.pinky_movement(board, start, pacman)
-
         elif self.enemy_type == Enemy.clyde:
             self.clyde_movement(board)
 
@@ -303,7 +300,6 @@ class Enemy(Character):
         queue = deque([[start]])
         seen = set([start])
         gamestate = board.Gamestate
-
 
         while queue:
             path = queue.popleft()
