@@ -16,8 +16,13 @@ class Window():
         the GUI accordingly to the progression of the game, by the use of the Board
         object attribute initialized here. '''
         self._master = master
-        self._width = 1000
-        self._height = 850
+
+        screen_width = self._master.winfo_screenwidth()
+        screen_height = self._master.winfo_screenheight()
+
+        self._width = min(1000, int(screen_width * 0.8))
+        self._height = min(850, int(screen_height * 0.8))
+
         self._images = GameImage()      # All images used for the game are stored as a GameImage() object
 
         self._ai_mode = False
@@ -47,6 +52,12 @@ class Window():
         # Pacman Board Initialized #
         self.board = Board(self._width, self._height, self._images)
         self.board.new_level()          # Initializes a new level for Pacman
+
+        self._master.resizable(width=True, height=True)
+
+        x = (screen_width - self._width) // 2
+        y = (screen_height - self._height) // 2
+        self._master.geometry(f"{self._width}x{self._height}+{x}+{y}")
 
     # Drawing Functions #
     def _draw_board(self) -> None:
