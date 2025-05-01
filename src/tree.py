@@ -66,9 +66,12 @@ class Tree():
                 ((tree.pos['pacman'][1] == tree.pos['pinky'][1]) and (tree.pos['pacman'][1] == tree.pos['pinky'][0])) or \
                 ((tree.pos['pacman'][1] == tree.pos['blinky'][1]) and (tree.pos['pacman'][1] == tree.pos['blinky'][0])) or \
                 ((tree.pos['pacman'][1] == tree.pos['clyde'][1]) and (tree.pos['pacman'][1] == tree.pos['clyde'][0])):
-                tree.pacman_lives_number -= 1
+                if tree.is_enemy_invulnerable:
+                    tree.pacman_lives_number -= 1
+                
                 child = Tree(0, [])
-                child.pacman_lives_number -= 1
+                child.pacman_lives_number = tree.pacman_lives_number
+                child.is_enemy_invulnerable = tree.is_enemy_invulnerable
                 tree.children.append(child)
                 Tree.build_pacman_tree(child, initial_board, depth - 1, not(is_packman_turn), heuristique)
             else:
@@ -82,6 +85,7 @@ class Tree():
                         child = tree.clone()
                         child.children = []
                         child.pacman_direction = selected_direction
+                        child.is_enemy_invulnerable = tree.is_enemy_invulnerable
                         Tree.modified__validate_movement_function(child, child.pos['pacman'][1], child.pos['pacman'][0], selected_direction)
                         Tree.modified_movement_function(child, 'pacman', selected_direction)
                         #print(selected_direction, child.pos['pacman'])
@@ -97,6 +101,7 @@ class Tree():
 
                     child = tree.clone()
                     child.children = []
+                    child.is_enemy_invulnerable = tree.is_enemy_invulnerable
 
                     Tree.modified_movement_function(child, 'inky', inky_direction)
                     Tree.modified_movement_function(child, 'pinky', pinky_direction)
@@ -400,19 +405,128 @@ class Tree():
         
         closest_pickup_dist = cls._find_closest_object_distance(pacman_pos, pickups) if pickups else 100
 
-        closest_ghost_dist = cls._find_closest_object_distance(pacman_pos, ghosts) if ghosts else 0
-        ghost_factor = closest_ghost_dist if not tree.is_enemy_invulnerable else 20 - closest_ghost_dist
+        ghost_positions = []
+        ghost_in_restricted = False
 
-        closest_boost_dist = cls._find_closest_object_distance(pacman_pos, boost_pickups) if boost_pickups and not tree.is_enemy_invulnerable else 100
+        restricted_areas = [(13,11), (13,16), (12,11), (12,12), (12,13), (12,14), (12,15), (12,16),
+                        (14,11), (14,12), (14,13), (14,14), (14,15), (14,16),
+                        (11,13), (11,14), (15,13), (15,14)]
+        
+        for enemy_type in ['inky', 'pinky', 'blinky', 'clyde']:
+            if enemy_type in tree.pos:
+                ghost_pos = tuple(tree.pos[enemy_type])
+                ghost_positions.append(ghost_pos)
+
+                if (ghost_pos[1], ghost_pos[0]) in restricted_areas:
+                    ghost_in_restricted = True
+        
+        danger_score = 0
+        if tree.is_enemy_invulnerable:
+            for ghost_pos in ghost_positions:
+                ghost_dist = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
+
+                if ghost_dist < 2:
+                    danger_score -= 1000
+                elif ghost_dist < 3:
+                    danger_score -= 500
+                elif ghost_dist < 5:
+                    danger_score -= 200 / ghost_dist
+                
+                predicted_ghost_pos = cls._predict_ghost_movement(ghost_pos, pacman_pos)
+                predicted_dist = abs(pacman_pos[0] - predicted_ghost_pos[0]) + abs(pacman_pos[1] - predicted_ghost_pos[1])
+
+                if predicted_dist < 3:
+                    danger_score -= 800
+                
+                if cls._is_pacman_trapped(pacman_pos, ghost_positions):
+                    danger_score -= 1500
+                
+                tunnel_escape_value = cls._evaluate_tunnel_escape(pacman_pos, ghost_positions)
+                danger_score += tunnel_escape_value
+        else:
+            for ghost_pos in ghost_positions:
+                ghost_dist = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
+
+                ghost_y, ghost_x = ghost_pos[1], ghost_pos[0]
+                if (ghost_y, ghost_x) in restricted_areas:
+                    continue
+
+                if ghost_dist < 5:
+                    danger_score += 400 / (ghost_dist + 0.1)
+
+        closest_boost_dist = cls._find_closest_object_distance(pacman_pos, boost_pickups) if boost_pickups else 100
 
         score = (
-            + 50 * (1.0 / (closest_pickup_dist + 1))
-            + 30 * ghost_factor
-            + 40 * (1.0 / (closest_boost_dist + 1))
-            + 20 * tree.pacman_lives_number
+            + 80 * (1.0 / (closest_pickup_dist + 1))
+            + danger_score
+            + 150 * (1.0 / (closest_boost_dist + 1))
+            + 30 * tree.pacman_lives_number
         )
 
         return score
+    
+    @classmethod
+    def _predict_ghost_movement(cls, ghost_pos, pacman_pos):
+        ghost_x, ghost_y = ghost_pos
+        pacman_x, pacman_y = pacman_pos
+
+        dx, dy = 0, 0
+
+        if ghost_x < pacman_x:
+            dx = 1
+        elif ghost_x > pacman_x:
+            dx = -1
+        
+        if ghost_y < pacman_y:
+            dy = 1
+        elif ghost_y > pacman_y:
+            dy = -1
+        
+        if abs(ghost_x - pacman_x) > abs(ghost_y - pacman_y):
+            return (ghost_x + dx, ghost_y)
+        else:
+            return (ghost_x, ghost_y + dy)
+    
+    @classmethod
+    def _is_pacman_trapped(cls, pacman_pos, ghost_positions):
+        if not ghost_positions:
+            return False
+        
+        directions_blocked = 0
+        px, py = pacman_pos
+
+        for direction in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            dx, dy = direction
+            check_pos = (px + dx, py + dy)
+
+            for ghost_pos in ghost_positions:
+                gx, gy = ghost_pos
+                ghost_dist = abs(check_pos[0] - gx) + abs(check_pos[1] - gy)
+                if ghost_dist < 3:
+                    directions_blocked += 1
+                    break
+        
+        return directions_blocked > 1
+    
+    @classmethod
+    def _evaluate_tunnel_escape(cls, pacman_pos, ghost_positions):
+        tunnel_positions = [(0, 14), (27, 14)]
+        
+        if not ghost_positions:
+            return 0
+        
+        min_ghost_dist = float('inf')
+        for ghost_pos in ghost_positions:
+            ghost_dist = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
+            min_ghost_dist = min(min_ghost_dist, ghost_dist)
+        
+        if min_ghost_dist < 5:
+            tunnel_dist = min(abs(pacman_pos[0] - tx) + abs(pacman_pos[1] - ty) for tx, ty in tunnel_positions)
+
+            tunnel_value = 300 / (tunnel_dist + 1) if tunnel_dist < 10 else 0
+        
+        return 0
+
     
     @classmethod
     def _find_closest_object_distance(cls, pos, objects_list):

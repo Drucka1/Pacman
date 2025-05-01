@@ -258,35 +258,186 @@ class Window():
             self.check_pause()
     
     def _compute_ai_move(self):
-        root_tree = Tree(0, [])
+        import time
 
+        if not hasattr(self, 'last_positions'):
+            self.last_positions = []
+        
+        current_pos = (self.board.pacman.x, self.board.pacman.y)
+
+        is_in_danger = self._is_pacman_in_danger()
+        search_depth = 4 if is_in_danger else 3
+
+        root_tree = Tree(0, [])
         root_tree.pos['pacman'] = [self.board.pacman.x, self.board.pacman.y]
+
+        root_tree.is_enemy_invulnerable = not self.board.pacman.invulnerable
 
         for enemy in self.board.enemies:
             root_tree.pos[enemy.enemy_type] = [enemy.x, enemy.y]
         
-        Tree.build_pacman_tree(root_tree, self.board, 4, True, True)
+        Tree.build_pacman_tree(root_tree, self.board, search_depth, True, True)
 
-        Tree.alpha_beta_calculus(root_tree, 4, -math.inf, math.inf, True)
+        Tree.alpha_beta_calculus(root_tree, search_depth, -math.inf, math.inf, True)
 
-        best_move = None
-        best_value = -math.inf
+        direction_values = {}
+        current_direction = self.board.pacman.direction
 
-        for i, child in enumerate(root_tree.children):
-            if child.value > best_value:
-                best_value = child.value
-                if i == 0:
-                    best_move = 'Left'
-                elif i == 1:
-                    best_move = 'Right'
-                elif i == 2:
-                    best_move = 'Up'
-                else:
-                    best_move = 'Down'
+        direction_bonus = {'Left': 0, 'Right': 0, 'Up': 0, 'Down': 0}
+        direction_bonus[current_direction] = 8
+
+        opposite_dir = {'Left': 'Right', 'Right': 'Left', 'Up': 'Down', 'Down': 'Up'}
+
+        self.last_positions.append(current_pos)
+        if len(self.last_positions) > 8:
+            self.last_positions.pop(0)
         
-        if best_move:
-            self.board.pacman.change_direction(best_move)
-            self.board.pacman.direction_image(self._images)
+        for child in root_tree.children:
+            if hasattr(child, 'pacman_direction'):
+                direction = child.pacman_direction
+                if self.board.validate_path(direction):
+                    dir_value = child.value + direction_bonus.get(direction, 0)
+
+                    tunnel_bonus = self._evaluate_tunnel_strategic_value(direction)
+                    dir_value += tunnel_bonus
+
+                    next_pos = self._predict_next_position(current_pos, direction)
+                    if next_pos in self.last_positions:
+                        dir_value -= 50
+                    
+                    next_pos_board = (next_pos[1], next_pos[0])
+
+                    if self._is_near_restricted_area(next_pos_board) and self._vulnerable_ghost_in_restricted_area():
+                        dir_value = -200
+                    
+                    if direction == opposite_dir.get(current_direction):
+                        enemy_close_behind = False
+                        for enemy in self.board.enemies:
+                            if self._is_enemy_close_behind(enemy, current_direction):
+                                enemy_close_behind = True
+                                break
+
+                        if not enemy_close_behind and not self._is_escape_needed():
+                            dir_value -= 80
+                    
+                    direction_values[direction] = dir_value
+        
+        if not direction_values:
+            return
+        
+        best_direction = max(direction_values, key=direction_values.get)
+
+        self.board.pacman.change_direction(best_direction)
+        self.board.pacman.direction_image(self._images)
+    
+    def _is_near_restricted_area(self, pos):
+        restricted_areas = [(13,11), (13,16), (12,11), (12,12), (12,13), (12,14), (12,15), (12,16),
+                        (14,11), (14,12), (14,13), (14,14), (14,15), (14,16),
+                        (11,13), (11,14), (15,13), (15,14)]
+        
+        x, y = pos
+        for ry, rx in restricted_areas:
+            if abs(y - ry) + abs (x - rx) <= 2:
+                return True
+        return False
+    
+    def _vulnerable_ghost_in_restricted_area(self):
+        if not self.board.pacman.invulnerable:
+            return False
+        
+        restricted_areas = [(13,11), (13,16), (12,11), (12,12), (12,13), (12,14), (12,15), (12,16),
+                        (14,11), (14,12), (14,13), (14,14), (14,15), (14,16),
+                        (11,13), (11,14), (15,13), (15,14)]
+        
+        for enemy in self.board.enemies:
+            if (enemy.y, enemy.x) in restricted_areas:
+                return True
+        return False
+    
+    def _is_pacman_in_danger(self):
+        pacman_pos = (self.board.pacman.x, self.board.pacman.y)
+        danger_threshold = 3
+        danger_count = 0
+
+        if self.board.pacman.invulnerable:
+            return False
+        
+        for enemy in self.board.enemies:
+            if not self.board.pacman.invulnerable:
+                dist = abs(pacman_pos[0] - enemy.x) + abs(pacman_pos[1] - enemy.y)
+                if dist < danger_threshold:
+                    danger_count += 1
+        
+        return danger_count > 1
+    
+    def _evaluate_tunnel_strategic_value(self, direction):
+        pacman_pos = (self.board.pacman.x, self.board.pacman.y)
+
+        tunnel_entries = [(0, 14), (27, 14)]
+
+        next_pos = self._predict_next_position(pacman_pos, direction)
+
+        for tx, ty in tunnel_entries:
+            if abs(pacman_pos[0] - tx) + abs(pacman_pos[1] - ty) <= 2:
+                if self._is_escape_needed():
+                    return 200
+        
+        if self._is_escape_needed():
+            current_tunnel_dist = min(abs(pacman_pos[0] - tx) + abs(pacman_pos[1] - ty) for tx, ty in tunnel_entries)
+            next_tunnel_dist = min(abs(next_pos[0] - tx) + abs(next_pos[1] - ty) for tx, ty in tunnel_entries)
+
+            if next_tunnel_dist < current_tunnel_dist:
+                return 50
+        
+        return 0
+    
+    def _is_escape_needed(self):
+        if self.board.pacman.invulnerable:
+            return False
+        
+        pacman_pos = (self.board.pacman.x, self.board.pacman.y)
+
+        approaching_ghosts = 0
+        for enemy in self.board.enemies:
+            dist = abs(pacman_pos[0] - enemy.x) + abs(pacman_pos[1] - enemy.y)
+            if dist < 5:
+                approaching_ghosts += 1
+        
+        return approaching_ghosts >= 2
+
+    
+    def _predict_next_position(self, current_pos, direction):
+        x, y = current_pos
+
+        if y == 14 and x == 0 and direction == 'Left':
+            return (27, 14)
+        elif y == 14 and x == 27 and direction == 'Right':
+            return (0, 14)
+        
+        if direction == 'Left':
+            return (x-1, y)
+        elif direction == 'Right':
+            return (x+1, y)
+        elif direction == 'Up':
+            return (x, y-1)
+        elif direction == 'Down':
+            return (x, y+1)
+        return current_pos
+    
+    def _is_enemy_close_behind(self, enemy, pacman_direction):
+        dx = abs(self.board.pacman.x - enemy.x)
+        dy = abs(self.board.pacman.y - enemy.y)
+
+        if dx + dy <= 2:
+            if pacman_direction == 'Left' and enemy.x > self.board.pacman.x:
+                return True
+            elif pacman_direction == 'Right' and enemy.x < self.board.pacman.x:
+                return True
+            elif pacman_direction == 'Up' and enemy.y > self.board.pacman.y:
+                return True
+            elif pacman_direction == 'Down' and enemy.y < self.board.pacman.y:
+                return True
+        return False
 
     def run(self) -> None:
         self.delay_beginning()
