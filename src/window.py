@@ -7,6 +7,7 @@ from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
 from tree import Tree
+import heuristique
 
 class Window():
 
@@ -26,6 +27,7 @@ class Window():
         self._images = GameImage()      # All images used for the game are stored as a GameImage() object
 
         self._ai_mode = False
+        self.heuristique = None
 
         self._ai_button = tk.Button(self._master, text="Toggle AI", command=self._toggle_ai)
         self._ai_button.grid(row=2, column=0, sticky=tk.W)
@@ -226,12 +228,16 @@ class Window():
             self._master.unbind('<Down>')
             self._master.unbind('<Escape>')
     
-    def _toggle_ai(self):
+    def _toggle_ai(self, which_heuristique):
         self._ai_mode = not self._ai_mode
         if self._ai_mode:
             self._ai_button.config(text="AI: ON")
+            if which_heuristique == '1' : self.heuristique = heuristique.HeuristiqueSimple()
+            elif which_heuristique == '1' : self.heuristique = heuristique.HeuristiqueLenteMaisOk()
+            else : self.heuristique = heuristique.HeuristiqueNathan()
         else:
             self._ai_button.config(text="AI: OFF")
+            self.heuristique = None
 
     # Main Functions #
     def update(self) -> None:
@@ -276,7 +282,7 @@ class Window():
         for enemy in self.board.enemies:
             root_tree.pos[enemy.enemy_type] = [enemy.x, enemy.y]
         
-        Tree.build_pacman_tree(root_tree, self.board, search_depth, True, True)
+        Tree.build_pacman_tree(root_tree, self.board, search_depth, True, self.heuristique)
 
         Tree.alpha_beta_calculus(root_tree, search_depth, -math.inf, math.inf, True)
 
