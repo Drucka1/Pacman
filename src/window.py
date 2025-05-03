@@ -233,7 +233,7 @@ class Window():
         if self._ai_mode:
             self._ai_button.config(text="AI: ON")
             if which_heuristique == '1' : self.heuristique = heuristique.HeuristiqueSimple()
-            elif which_heuristique == '1' : self.heuristique = heuristique.HeuristiqueLenteMaisOk()
+            elif which_heuristique == '2' : self.heuristique = heuristique.HeuristiqueLenteMaisOk()
             else : self.heuristique = heuristique.HeuristiqueNathan()
         else:
             self._ai_button.config(text="AI: OFF")

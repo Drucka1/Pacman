@@ -418,7 +418,7 @@ class Board():
 
         self.Gamestate = saved_gamestate
 
-    def _pacman_board(self, height, width) -> [list]:
+    def _pacman_board(self, height, width):
         ''' Takes the board of numbers, and easily sets up the coordinates of each object,
             as manually typing each object with their coordinates would take way too long. '''
         game_board = []
@@ -489,9 +489,28 @@ class Board():
           [0] + [1 for i in range(26)] + [0],
           [0 for i in range(28)]]
         
-        
         return new_board
+    
+    def isWin(self):
+        return (
+            not any(1 in row for row in self.Gamestate) and 
+            all(self.pacman.x != ghost.x and self.pacman.y != ghost.y for ghost in self.enemies)
+        )
 
+    def isLose(self):
+        return any(self.pacman.x == ghost.x and self.pacman.y == ghost.y for ghost in self.enemies)
+    
+    def numberOfEatenPickup(self):
+        return 240 - sum(row.count(1) for row in self.Gamestate)
+
+    def numberOfEatenBoost(self):
+        return 4 - sum(row.count(3) for row in self.Gamestate)
+    
+    def pellets(self):
+        return [ (y,x) for x,row in enumerate(self.Gamestate) for y,cell in enumerate(row) if cell == 1 ]
+    
+    def boosts(self):
+        return [ (y,x) for x,row in enumerate(self.Gamestate) for y,cell in enumerate(row) if cell == 3 ]
 
     # ===== debug functions =====
     def surrounded_print(self):
