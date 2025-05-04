@@ -47,8 +47,8 @@ class HeuristiqueSimple(Heuristique):
             
         score = game.numberOfEatenPickup()*10 + game.numberOfEatenBoost()*500
 
-        # Bonus pour être loin des fantômes en mode scatter
-        """if game.scatter_mode:
+        # Bonus pour être loin des fantômes en mode vulnerable
+        if not tree.is_enemy_invulnerable:
             return (
             score
             + scatter_bonus
@@ -57,7 +57,7 @@ class HeuristiqueSimple(Heuristique):
             - 10 * remaining_pellets
             + danger_penalty
             - 5 * barycenter_distance
-            )"""
+            )
 
         # Heuristique combinée
         return (
@@ -124,7 +124,7 @@ class HeuristiqueLenteMaisOk(Heuristique):
         for ghost in ghosts:
             distance = abs(pacman.x - ghost.x) + abs(pacman.y - ghost.y)
 
-            if False :#game.scatter_chrono > 5:#  Considérer le fantôme comme effrayé (seuil ajustable)
+            if  not tree.is_enemy_invulnerable and pacman.invulnerable_ticks > 5:#  Considérer le fantôme comme effrayé (seuil ajustable)
                 # Bonus pour être proche d'un fantôme effrayé
                 # Le bonus augmente avec le temps restant et diminue avec la distance
                 bonus_scared_ghost += (BONUS_CHASE_GHOST + game.scatter_chrono * FACTOR_SCARED_TIMER) / (distance + 1)
@@ -174,7 +174,6 @@ class HeuristiqueNathan(Heuristique):
         closest_pickup_dist = self._find_closest_object_distance(pacman_pos, pickups) if pickups else 100
 
         ghost_positions = []
-        ghost_in_restricted = False
 
         restricted_areas = [(13,11), (13,16), (12,11), (12,12), (12,13), (12,14), (12,15), (12,16),
                         (14,11), (14,12), (14,13), (14,14), (14,15), (14,16),
@@ -184,9 +183,6 @@ class HeuristiqueNathan(Heuristique):
             if enemy_type in tree.pos:
                 ghost_pos = tuple(tree.pos[enemy_type])
                 ghost_positions.append(ghost_pos)
-
-                if (ghost_pos[1], ghost_pos[0]) in restricted_areas:
-                    ghost_in_restricted = True
         
         danger_score = 0
         if tree.is_enemy_invulnerable:
