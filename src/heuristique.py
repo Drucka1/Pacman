@@ -45,7 +45,8 @@ class HeuristiqueSimple(Heuristique):
         else:
             barycenter_distance = 0
             
-        score = game.numberOfEatenPickup()*10 + game.numberOfEatenBoost()*500
+        #score = game.numberOfEatenPickup()*5 + game.numberOfEatenBoost()*500
+        score = game.pacman.score
 
         # Bonus pour être loin des fantômes en mode vulnerable
         if not tree.is_enemy_invulnerable:
@@ -77,14 +78,14 @@ class HeuristiqueLenteMaisOk(Heuristique):
         if game.isLose():
             return float('-inf') # Défaite = score minimal
 
-        # Commencer avec le score actuel du jeu
-        score = game.numberOfEatenPickup()*5 + game.numberOfEatenBoost()*500
-
         pacman = game.pacman
         pellets = game.pellets()
         boosts = game.boosts()
         ghosts = game.enemies
-
+        
+        # Commencer avec le score actuel du jeu
+        #score = game.numberOfEatenPickup()*5 + game.numberOfEatenBoost()*500
+        score = pacman.score
         # 2. Gommes (Pellets)
         num_pellets = len(pellets)
         score -= 15 * num_pellets # Pénalité plus forte pour les gommes restantes
