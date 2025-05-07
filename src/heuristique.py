@@ -1,161 +1,23 @@
 class Heuristique():
-    def evaluate(self, tree, game):
+    def evaluate(self, tree, board):
         pass
     
-class HeuristiqueSimple(Heuristique):
-    def evaluate(self, tree, game):
-        ghost_distances = [
-            abs(game.pacman.x - ghost.x) + abs(game.pacman.y - ghost.y)
-            for ghost in game.enemies
-        ]
-        min_distance = min(ghost_distances)
-
-        # Pénalité si un fantôme est trop proche
-        danger_penalty = -100 if min_distance <= 1 else 0
-
-        # Bonus pour les grosses boules (boosts)
-        boost_positions = [
-            (y, x) for y, row in enumerate(game.Gamestate) for x, cell in enumerate(row) if cell == 2
-        ]
-        boost_distances = [
-            abs(game.pacman.x - boost[1]) + abs(game.pacman.y - boost[0])
-            for boost in boost_positions
-        ]
-        closest_boost_distance = min(boost_distances) if boost_distances else float('inf')
-        boost_bonus = 50 if closest_boost_distance < 5 else 0
-
-        # Compter les boules restantes
-        remaining_pellets = sum(row.count(1) for row in game.Gamestate)
-
-        scatter_bonus = 1000
-        pellet_search_bonus = sum(
-            max(0, 20 - (abs(game.pacman.x - x) + abs(game.pacman.y - y)))
-            for y, row in enumerate(game.Gamestate)
-            for x, cell in enumerate(row) if cell == 1
-        )  # Encourage Pacman to explore for pellets, with higher bonus for closer pellets
-
-        # Calculate the barycenter of remaining pellets if there are less than 30
-        remaining_pellet_positions = [
-            (y, x) for y, row in enumerate(game.Gamestate) for x, cell in enumerate(row) if cell == 1
-        ]
-        if len(remaining_pellet_positions) < 30 and remaining_pellet_positions:
-            barycenter_x = sum(pos[1] for pos in remaining_pellet_positions) / len(remaining_pellet_positions)
-            barycenter_y = sum(pos[0] for pos in remaining_pellet_positions) / len(remaining_pellet_positions)
-            barycenter_distance = abs(game.pacman.x - barycenter_x) + abs(game.pacman.y - barycenter_y)
-        else:
-            barycenter_distance = 0
-            
-        #score = game.numberOfEatenPickup()*5 + game.numberOfEatenBoost()*500
-        score = game.pacman.score
-
-        # Bonus pour être loin des fantômes en mode vulnerable
-        if not tree.is_enemy_invulnerable:
-            return (
-            score
-            + scatter_bonus
-            + pellet_search_bonus
-            + closest_boost_distance
-            - 10 * remaining_pellets
-            + danger_penalty
-            - 5 * barycenter_distance
-            )
-
-        # Heuristique combinée
-        return (
-            score
-            + boost_bonus
-            + 5 * min_distance
-            - 10 * remaining_pellets
-            + danger_penalty
-        )
-
-    
-class HeuristiqueLenteMaisOk(Heuristique):        
-    def evaluate(self, tree, game):
-        # 1. Gérer les états terminaux
-        if game.isWin():
-            return float('inf')
-        if game.isLose():
-            return float('-inf') # Défaite = score minimal
-
-        pacman = game.pacman
-        pellets = game.pellets()
-        boosts = game.boosts()
-        ghosts = game.enemies
+    @classmethod
+    def _find_closest_object_distance(self, pos, objects_list):
+        if not objects_list:
+            return 100
         
-        # Commencer avec le score actuel du jeu
-        #score = game.numberOfEatenPickup()*5 + game.numberOfEatenBoost()*500
-        score = pacman.score
-        # 2. Gommes (Pellets)
-        num_pellets = len(pellets)
-        score -= 15 * num_pellets # Pénalité plus forte pour les gommes restantes
-
-        if num_pellets > 0:
-            pellet_distances = [abs(pacman.x - p[0]) + abs(pacman.y - p[1]) for p in pellets]
-            closest_pellet_distance = min(pellet_distances)
-            # Bonus pour être proche de la gomme la plus proche (plus fort quand très proche)
-            score += 10.0 / (closest_pellet_distance + 1)
-        else:
-            # Si aucune gomme, très bon état (presque gagné)
-            score += 500
-
-        # 3. Boosts (Super-Pastilles)
-        num_boosts = len(boosts)
-        score -= 20 * num_boosts # Légère pénalité pour les boosts non consommés
-
-        if num_boosts > 0:
-            boost_distances = [abs(pacman.x - b[0]) + abs(pacman.y - b[1]) for b in boosts]
-            closest_boost_distance = min(boost_distances)
-            # Bonus pour être proche d'un boost, surtout si des fantômes menaçants sont là (voir section fantômes)
-            score += 5.0 / (closest_boost_distance + 1)
-        else:
-            closest_boost_distance = float('inf') # Pas de boost restant
-
-        # 4. Fantômes
-        min_dist_normal_ghost = float('inf')
-        bonus_scared_ghost = 0
-        PENALTY_CLOSE_GHOST = -200  # Forte pénalité si un fantôme normal est TRES proche
-        PENALTY_NEAR_GHOST = -50    # Pénalité moindre si un fantôme normal est proche
-        BONUS_CHASE_GHOST = 150     # Bonus de base pour chasser un fantôme effrayé
-        FACTOR_SCARED_TIMER = 2     # Bonus supplémentaire basé sur le temps restant
-
-        # Pour rendre le bonus de proximité au boost dépendant des fantômes:
-        is_normal_ghost_near = False
-
-        for ghost in ghosts:
-            distance = abs(pacman.x - ghost.x) + abs(pacman.y - ghost.y)
-
-            if  not tree.is_enemy_invulnerable and pacman.invulnerable_ticks > 5:#  Considérer le fantôme comme effrayé (seuil ajustable)
-                # Bonus pour être proche d'un fantôme effrayé
-                # Le bonus augmente avec le temps restant et diminue avec la distance
-                bonus_scared_ghost += (BONUS_CHASE_GHOST + game.scatter_chrono * FACTOR_SCARED_TIMER) / (distance + 1)
-            
-            else: # Fantôme normal ou presque plus effrayé = menace
-                min_dist_normal_ghost = min(min_dist_normal_ghost, distance)
-                if distance < 5: # Seuil pour considérer un fantôme comme "proche"
-                    is_normal_ghost_near = True
-
-        # Appliquer les pénalités pour les fantômes normaux
-        if min_dist_normal_ghost <= 2:
-            score += PENALTY_CLOSE_GHOST * 5 # Danger immédiat ! Très forte pénalité.
-        elif min_dist_normal_ghost <= 5:
-            score += PENALTY_CLOSE_GHOST
-        elif min_dist_normal_ghost <= 7:
-            score += PENALTY_NEAR_GHOST
-        # Pas de bonus direct pour être loin, la pénalité pour être proche suffit généralement
-
-        score += bonus_scared_ghost # Ajouter le bonus total pour la chasse aux fantômes effrayés
-
-        # Bonus supplémentaire pour être près d'un boost SI un fantôme normal est proche
-        if is_normal_ghost_near and num_boosts > 0:
-            score += 20.0 / (closest_boost_distance + 1) # Encouragement plus fort à prendre le boost
-
-        return score
+        min_dist = float('inf')
+        for obj_pos in objects_list:
+            dist = abs(pos[0] - obj_pos[0]) + abs(pos[1] - obj_pos[1])
+            min_dist = min(min_dist, dist)
+        
+        return min_dist
     
 class HeuristiqueNathan(Heuristique):  
     def evaluate(self, tree, board):
         if tree.pacman_lives_number == 0:
-            return -10000
+            return float('-inf')
         
         pickups = []
         ghosts = []
@@ -209,6 +71,7 @@ class HeuristiqueNathan(Heuristique):
                 tunnel_escape_value = self._evaluate_tunnel_escape(pacman_pos, ghost_positions)
                 danger_score += tunnel_escape_value
         else:
+            if self._find_closest_object_distance(pacman_pos, boost_pickups) < 3: return float('-inf')
             for ghost_pos in ghost_positions:
                 ghost_dist = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
 
@@ -291,16 +154,126 @@ class HeuristiqueNathan(Heuristique):
             tunnel_value = 300 / (tunnel_dist + 1) if tunnel_dist < 10 else 0
         
         return 0
-
     
-    @classmethod
-    def _find_closest_object_distance(self, pos, objects_list):
-        if not objects_list:
-            return 100
-        
-        min_dist = float('inf')
-        for obj_pos in objects_list:
-            dist = abs(pos[0] - obj_pos[0]) + abs(pos[1] - obj_pos[1])
-            min_dist = min(min_dist, dist)
-        
-        return min_dist
+class HeuristiqueClement(Heuristique):
+    def evaluate(self, tree, game):
+         # --- Constants ---
+        PENALTY_GHOST_TOUCHING = -5000
+        PENALTY_GHOST_IMMINENT = -1000
+        PENALTY_GHOST_VERY_CLOSE = -500
+        PENALTY_GHOST_NEAR = -100
+        PENALTY_DEAD_END = -1500
+        PENALTY_STUCK = -100
+
+        BONUS_HUNT_SCARED_GHOST_EAT = 500
+        BONUS_HUNT_SCARED_GHOST_CLOSE = 100
+    
+        pacman_pos = tuple(tree.pos['pacman'])
+        prev_pos = getattr(tree, "prev_pacman_pos", None)  # Si dispo
+
+        if tree.pacman_lives_number == 0:
+            return float('-inf')
+
+        score = 0
+
+        # --- Collecte des objets ---
+        pickups, boosts = [], []
+        for game_obj in game.game_objects:
+            obj_pos = (game_obj.x, game_obj.y)
+            if type(game_obj).__name__ == 'Pickup':
+                if game_obj.boost:
+                    boosts.append(obj_pos)
+                else:
+                    pickups.append(obj_pos)
+
+        num_pellets = len(pickups)
+        pellet_distances = [abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1]) for p in pickups]
+        closest_pellet_distance = min(pellet_distances) if pellet_distances else float('inf')
+        num_boosts = len(boosts)
+        boost_distances = [abs(pacman_pos[0] - b[0]) + abs(pacman_pos[1] - b[1]) for b in boosts]
+        closest_boost_distance = min(boost_distances) if boost_distances else float('inf')
+
+        # --- Fantômes ---
+        current_ghost_positions = []
+        for enemy_type in ['inky', 'pinky', 'blinky', 'clyde']:
+            if enemy_type in tree.pos:
+                current_ghost_positions.append(tuple(tree.pos[enemy_type]))
+
+        # --- Danger Fantômes ---
+        min_dist_to_ghost = float('inf')
+        ghosts_very_close = 0
+        directions = [(0,1),(1,0),(0,-1),(-1,0)]
+        free_exits = 0
+
+        for dx, dy in directions:
+            next_pos = (pacman_pos[0]+dx, pacman_pos[1]+dy)
+            if not any(g == next_pos for g in current_ghost_positions):
+                free_exits += 1
+
+        if tree.is_enemy_invulnerable: 
+            for ghost_pos in current_ghost_positions:
+                distance = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
+                min_dist_to_ghost = min(min_dist_to_ghost, distance)
+                if distance == 0:
+                    score += PENALTY_GHOST_TOUCHING
+                elif distance == 1:
+                    score += PENALTY_GHOST_IMMINENT
+                    ghosts_very_close += 1
+                elif distance == 2:
+                    score += PENALTY_GHOST_VERY_CLOSE
+                    ghosts_very_close += 1
+                elif distance <= 4:
+                    score += PENALTY_GHOST_NEAR
+
+        # Dead-end panic
+        if free_exits <= 1 and ghosts_very_close > 0:
+            score += PENALTY_DEAD_END
+
+        # --- Pickups ---
+        if num_pellets > 0:
+            score -= 8 * num_pellets
+            if closest_pellet_distance != float('inf'):
+                score += 100.0 / (closest_pellet_distance + 0.5)
+        else:
+            score += 2000
+
+        # --- Boosts ---
+        if num_boosts > 0 and closest_boost_distance != float('inf'):
+            if ghosts_very_close > 0:
+                score += 200 / (closest_boost_distance + 0.2)
+            elif min_dist_to_ghost <= 4:
+                score += 50 / (closest_boost_distance + 0.5)
+            else:
+                score += 10 / (closest_boost_distance + 0.5)
+
+        # --- Fantômes vulnérables ---
+        if tree.is_enemy_invulnerable:
+            for ghost_pos in current_ghost_positions:
+                distance = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
+                if distance == 0:
+                    score += BONUS_HUNT_SCARED_GHOST_EAT
+                elif distance < 3:
+                    score += BONUS_HUNT_SCARED_GHOST_CLOSE / (distance + 0.1)
+            # Évite de gaspiller un boost
+            if num_boosts > 0 and closest_boost_distance < 3:
+                score -= 100
+                
+        # --- Mangé au centre si invulnérable et pickups au centres ---
+        if not tree.is_enemy_invulnerable and num_pellets > 0:
+            center_zone = [(x, y) for x in range(11, 17) for y in range(11, 17)]
+            center_pickups = [p for p in pickups if p in center_zone]
+            if center_pickups:
+                # Bonus proportionnel à la proximité du centre
+                for p in center_pickups:
+                    dist = abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1])
+                    score += 200 / (dist + 0.5)        
+
+        # --- Évite de gaspiller un boost si Pacman est invulnérable et proche d'un boost ---
+        if not tree.is_enemy_invulnerable and num_boosts > 0 and closest_boost_distance < 3:
+            return float('-inf')
+
+        # --- Pénalise l'immobilisme ---
+        if prev_pos is not None and prev_pos == pacman_pos:
+            score += PENALTY_STUCK
+
+        return score

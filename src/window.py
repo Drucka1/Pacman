@@ -7,7 +7,7 @@ from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
 from tree import Tree
-import heuristique
+from heuristique import HeuristiqueClement, HeuristiqueNathan
 
 class Window():
 
@@ -232,9 +232,8 @@ class Window():
         self._ai_mode = not self._ai_mode
         if self._ai_mode:
             self._ai_button.config(text="AI: ON")
-            if which_heuristique == '1' : self.heuristique = heuristique.HeuristiqueSimple()
-            elif which_heuristique == '2' : self.heuristique = heuristique.HeuristiqueLenteMaisOk()
-            else : self.heuristique = heuristique.HeuristiqueNathan()
+            if which_heuristique == '1' : self.heuristique = HeuristiqueNathan()
+            else : self.heuristique = HeuristiqueClement()
         else:
             self._ai_button.config(text="AI: OFF")
             self.heuristique = None
@@ -272,7 +271,7 @@ class Window():
         current_pos = (self.board.pacman.x, self.board.pacman.y)
 
         is_in_danger = self._is_pacman_in_danger()
-        search_depth = 4 if is_in_danger else 3
+        search_depth = 5 if is_in_danger else 4
 
         root_tree = Tree(0, [])
         root_tree.pos['pacman'] = [self.board.pacman.x, self.board.pacman.y]
