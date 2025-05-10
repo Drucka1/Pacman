@@ -1,4 +1,4 @@
-#!/home/clem/TN/Pacman/venv/bin/python3
+#!/home/gapial/Bureau/TN/2A/IA/Pacman/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

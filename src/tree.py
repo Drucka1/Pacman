@@ -1,5 +1,6 @@
 from collections import deque
 import copy
+import math
 import random
 import tkinter as tk
 
@@ -376,6 +377,14 @@ class Tree():
         for i, child in enumerate(self.children):
             child.display(level + 1, f"Child {i+1}: ")
     
+    @classmethod
+    def display_pacman_tree_aux(cls, tree, i):
+        for _ in range(i):
+            print("    ", end="")
+        print(tree.pos)
+        for child in tree.children:            
+            Tree.display_pacman_tree_aux(child, i+1)
+
 if __name__ == "__main__":
     """child1 = Tree(0, [Tree(0, []), Tree(0, []), Tree(0, [])])
     child2 = Tree(0, [Tree(0, []), Tree(0, []), Tree(0, []), Tree(0, [])])
@@ -397,8 +406,11 @@ if __name__ == "__main__":
     board = Board(1000, 850, GameImage())
     board.new_level()
     test_tree = Tree(0, [])
+    print(test_tree.pos['pacman'])
 
-    Tree.build_pacman_tree(test_tree, board, 16, True, None)
+    Tree.build_pacman_tree(test_tree, board, 3, True, None)
+    Tree.alpha_beta_calculus(test_tree, 3, -math.inf, math.inf, True)
+    Tree.display_pacman_tree_aux(test_tree, 0)
 
     
 
