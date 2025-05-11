@@ -44,8 +44,9 @@ class Tree():
         self.boosts_dict['(1, 3)'] = False
         self.boosts_dict['(26, 3)'] = False
         self.boosts_dict['(26, 16)'] = False
+        self.gameover = False
 
-    def set_tree_attributes(self, value, children, pacman_pos, inky_pos, pinky_pos, blinky_pos, clyde_pos, pacman_lives_number, pacman_direction, is_enemy_invulnerable, pacman_invulnerable_ticks, inky_movement_turns, inky_last_choice, clyde_movement_turns, clyde_last_choice, boosts_dict):
+    def set_tree_attributes(self, value, children, pacman_pos, inky_pos, pinky_pos, blinky_pos, clyde_pos, pacman_lives_number, pacman_direction, is_enemy_invulnerable, pacman_invulnerable_ticks, inky_movement_turns, inky_last_choice, clyde_movement_turns, clyde_last_choice, boosts_dict, gameover):
         self.value = value
         self.children = children
         self.pos['pacman'] = pacman_pos
@@ -62,10 +63,11 @@ class Tree():
         self.clyde_movement_turns = clyde_movement_turns
         self.clyde_last_choice = clyde_last_choice
         self.boosts_dict = boosts_dict
+        self.gameover = gameover
            
     def clone(self):
         res = Tree(self.value, self.children)
-        res.set_tree_attributes(self.value, self.children, copy.deepcopy(self.pos['pacman']), copy.deepcopy(self.pos['inky']), copy.deepcopy(self.pos['pinky']), copy.deepcopy(self.pos['blinky']), copy.deepcopy(self.pos['clyde']), self.pacman_lives_number, self.pacman_direction, self.is_enemy_invulnerable, self.pacman_invulnerable_ticks, self.inky_movement_turns, self.inky_last_choice, self.clyde_movement_turns, self.clyde_last_choice, copy.deepcopy(self.boosts_dict))
+        res.set_tree_attributes(self.value, self.children, copy.deepcopy(self.pos['pacman']), copy.deepcopy(self.pos['inky']), copy.deepcopy(self.pos['pinky']), copy.deepcopy(self.pos['blinky']), copy.deepcopy(self.pos['clyde']), self.pacman_lives_number, self.pacman_direction, self.is_enemy_invulnerable, self.pacman_invulnerable_ticks, self.inky_movement_turns, self.inky_last_choice, self.clyde_movement_turns, self.clyde_last_choice, copy.deepcopy(self.boosts_dict), self.gameover)
         return res
 
     @classmethod
@@ -76,6 +78,7 @@ class Tree():
             return
         elif tree.pacman_lives_number == 0:
             tree.value = float('-inf')
+            tree.gameover = True
             return
         elif ((tree.pos['pacman'][1] == tree.pos['inky'][1]) and (tree.pos['pacman'][0] == tree.pos['inky'][0])) or \
             ((tree.pos['pacman'][1] == tree.pos['pinky'][1]) and (tree.pos['pacman'][1] == tree.pos['pinky'][0])) or \

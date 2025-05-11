@@ -276,7 +276,7 @@ class Window():
                     self.ai_current_tree = self.ai_current_tree.children[self.ai_next_positions[self.ai_next_move_index]]
                     self.ai_next_move_index += 1
                     
-                    print(self.ai_current_tree.pos, self.ai_next_move_index)
+                    print(self.ai_current_tree.is_enemy_invulnerable)
                     
                     self.board.game_objects = { objs for rows in self.board.Gamestate for objs in rows if objs is not None }
                     self.board.pacman = self.board.pacman_location()
@@ -323,6 +323,7 @@ class Window():
                         elif e.enemy_type == Enemy.clyde:
                             e.movement_turns = self.ai_current_tree.clyde_movement_turns
                             e.last_choice = self.ai_current_tree.clyde_last_choice
+                    self.board.game_over = self.ai_current_tree.gameover
                     
             self._check_for_completion()
 
@@ -352,8 +353,10 @@ class Window():
     
     def _compute_ai_move(self):
         self.ai_tree = Tree(0, [])
-        if (self.ai_current_tree is not None):
-            self.ai_tree = self.ai_current_tree.clone()
+        enemies_dict = {enemy.enemy_type : enemy for enemy in self.board.enemies}
+        boosts_coordinates = [(26, 27), (1, 27), (1, 16), (1, 3), (26, 3), (26, 16)]
+        boosts_dict = {str(e): self.board.Gamestate[e[0]][e[1]] == 3 for e in boosts_coordinates}
+        self.ai_tree.set_tree_attributes(0, [], list(self.board.pacman.return_location())[::-1], list(enemies_dict[Enemy.inky].return_location())[::-1], list(enemies_dict[Enemy.pinky].return_location())[::-1],list(enemies_dict[Enemy.blinky].return_location())[::-1], list(enemies_dict[Enemy.clyde].return_location())[::-1], self.board.pacman.lives, self.board.pacman.direction, not(self.board.pacman.invulnerable), self.board.pacman.invulnerable_ticks, enemies_dict[Enemy.inky].movement_turns, enemies_dict[Enemy.inky].last_choice, enemies_dict[Enemy.clyde].movement_turns, enemies_dict[Enemy.clyde].last_choice, boosts_dict, False)
 
         self.ai_current_tree = self.ai_tree
 
