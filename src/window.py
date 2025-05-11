@@ -234,6 +234,7 @@ class Window():
             self._ai_button.config(text="AI: ON")
             if which_heuristique == '1' : self.heuristique = HeuristiqueNathan()
             else : self.heuristique = HeuristiqueClement()
+            print(self.heuristique)
         else:
             self._ai_button.config(text="AI: OFF")
             self.heuristique = None
@@ -270,8 +271,7 @@ class Window():
         
         current_pos = (self.board.pacman.x, self.board.pacman.y)
 
-        is_in_danger = self._is_pacman_in_danger()
-        search_depth = 5 if is_in_danger else 4
+        search_depth = 9
 
         root_tree = Tree(0, [])
         root_tree.pos['pacman'] = [self.board.pacman.x, self.board.pacman.y]

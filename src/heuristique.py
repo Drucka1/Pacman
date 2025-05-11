@@ -157,7 +157,7 @@ class HeuristiqueNathan(Heuristique):
     
 class HeuristiqueClement(Heuristique):
     def evaluate(self, tree, game):
-         # --- Constants ---
+        # --- Constants ---
         PENALTY_GHOST_TOUCHING = -5000
         PENALTY_GHOST_IMMINENT = -1000
         PENALTY_GHOST_VERY_CLOSE = -500
@@ -192,7 +192,8 @@ class HeuristiqueClement(Heuristique):
         num_boosts = len(boosts)
         boost_distances = [abs(pacman_pos[0] - b[0]) + abs(pacman_pos[1] - b[1]) for b in boosts]
         closest_boost_distance = min(boost_distances) if boost_distances else float('inf')
-
+        
+     
         # --- Fantômes ---
         current_ghost_positions = []
         for enemy_type in ['inky', 'pinky', 'blinky', 'clyde']:
@@ -223,11 +224,22 @@ class HeuristiqueClement(Heuristique):
                     score += PENALTY_GHOST_VERY_CLOSE
                     ghosts_very_close += 1
                 elif distance <= 4:
-                    score += PENALTY_GHOST_NEAR
+                    score += PENALTY_GHOST_NEAR / (distance + 1)
 
         # Dead-end panic
         if free_exits <= 1 and ghosts_very_close > 0:
             score += PENALTY_DEAD_END
+
+        # --- Favorise la mobilité ---
+        if free_exits >= 3:
+            score += 50  # Encourage les positions avec plusieurs sorties
+        elif free_exits == 2:
+            score += 10
+
+        # --- Pénalise la proximité de plusieurs fantômes ---
+        ghosts_close = sum(1 for g in current_ghost_positions if abs(pacman_pos[0] - g[0]) + abs(pacman_pos[1] - g[1]) <= 2)
+        if ghosts_close > 1:
+            score += PENALTY_GHOST_VERY_CLOSE * ghosts_close
 
         # --- Pickups ---
         if num_pellets > 0:
@@ -247,7 +259,7 @@ class HeuristiqueClement(Heuristique):
                 score += 10 / (closest_boost_distance + 0.5)
 
         # --- Fantômes vulnérables ---
-        if tree.is_enemy_invulnerable:
+        if not tree.is_enemy_invulnerable:
             for ghost_pos in current_ghost_positions:
                 distance = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
                 if distance == 0:
@@ -267,10 +279,6 @@ class HeuristiqueClement(Heuristique):
                 for p in center_pickups:
                     dist = abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1])
                     score += 200 / (dist + 0.5)        
-
-        # --- Évite de gaspiller un boost si Pacman est invulnérable et proche d'un boost ---
-        if not tree.is_enemy_invulnerable and num_boosts > 0 and closest_boost_distance < 3:
-            return float('-inf')
 
         # --- Pénalise l'immobilisme ---
         if prev_pos is not None and prev_pos == pacman_pos:

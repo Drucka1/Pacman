@@ -376,23 +376,7 @@ class Tree():
         for i, child in enumerate(self.children):
             child.display(level + 1, f"Child {i+1}: ")
     
-if __name__ == "__main__":
-    """child1 = Tree(0, [Tree(0, []), Tree(0, []), Tree(0, [])])
-    child2 = Tree(0, [Tree(0, []), Tree(0, []), Tree(0, []), Tree(0, [])])
-    child3 = Tree(0, [Tree(0, []), Tree(0, [])])
-    
-    root = Tree(0, [child1, child2, child3])
-    
-    root._init_tree_randomly(-10, 10)
-    root._alpha_beta_calculus(2, - math.inf, math.inf, True)
-    path = root._get_node_list()
-
-    print("Arbre généré aléatoirement:")
-    root.display()    
-    print("Trajectoire")
-    for i in range(len(path)):
-        print(str(path[i]) + ", ")"""
-    
+if __name__ == "__main__":    
     root = tk.Tk()
     board = Board(1000, 850, GameImage())
     board.new_level()
