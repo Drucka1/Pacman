@@ -6,6 +6,7 @@ import tkinter as tk
 
 from board import Board
 from gameImage import GameImage
+from pacman import Pacman
 from wall import Wall
 
 class Tree():
@@ -15,10 +16,6 @@ class Tree():
     initial_pos['pinky'] = [14, 15]
     initial_pos['blinky'] = [13, 15]
     initial_pos['clyde'] = [15, 15]
-    inky_movement_turns = 15
-    inky_last_choice = None
-    clyde_movement_turns = 15
-    clyde_last_choice = None
 
     def __init__(self, value, children):
         Tree.get_initial_tree_attributes(self)
@@ -35,8 +32,20 @@ class Tree():
         self.pos['inky'] = self.initial_pos['inky']
         self.pos['pinky'] = self.initial_pos['pinky']
         self.pos['clyde'] = self.initial_pos['clyde']
+        self.pacman_invulnerable_ticks = Pacman.ticks
+        self.inky_movement_turns = 15
+        self.inky_last_choice = None
+        self.clyde_movement_turns = 15
+        self.clyde_last_choice = None
+        self.boosts_dict = {}
+        self.boosts_dict['(26, 27)'] = False
+        self.boosts_dict['(1, 27)'] = False
+        self.boosts_dict['(1, 16)'] = False
+        self.boosts_dict['(1, 3)'] = False
+        self.boosts_dict['(26, 3)'] = False
+        self.boosts_dict['(26, 16)'] = False
 
-    def set_tree_attributes(self, value, children, pacman_pos, inky_pos, pinky_pos, blinky_pos, clyde_pos, pacman_lives_number, pacman_direction, is_enemy_invulnerable):
+    def set_tree_attributes(self, value, children, pacman_pos, inky_pos, pinky_pos, blinky_pos, clyde_pos, pacman_lives_number, pacman_direction, is_enemy_invulnerable, pacman_invulnerable_ticks, inky_movement_turns, inky_last_choice, clyde_movement_turns, clyde_last_choice, boosts_dict):
         self.value = value
         self.children = children
         self.pos['pacman'] = pacman_pos
@@ -46,11 +55,17 @@ class Tree():
         self.pos['clyde'] = clyde_pos
         self.pacman_lives_number = pacman_lives_number
         self.pacman_direction = pacman_direction
-        self.is_enemy_invulnerable = is_enemy_invulnerable     
+        self.is_enemy_invulnerable = is_enemy_invulnerable   
+        self.pacman_invulnerable_ticks = pacman_invulnerable_ticks
+        self.inky_movement_turns = inky_movement_turns
+        self.inky_last_choice = inky_last_choice
+        self.clyde_movement_turns = clyde_movement_turns
+        self.clyde_last_choice = clyde_last_choice
+        self.boosts_dict = boosts_dict
            
     def clone(self):
         res = Tree(self.value, self.children)
-        res.set_tree_attributes(self.value, self.children, copy.deepcopy(self.pos['pacman']), copy.deepcopy(self.pos['inky']), copy.deepcopy(self.pos['pinky']), copy.deepcopy(self.pos['blinky']), copy.deepcopy(self.pos['clyde']), self.pacman_lives_number, self.pacman_direction, self.is_enemy_invulnerable)
+        res.set_tree_attributes(self.value, self.children, copy.deepcopy(self.pos['pacman']), copy.deepcopy(self.pos['inky']), copy.deepcopy(self.pos['pinky']), copy.deepcopy(self.pos['blinky']), copy.deepcopy(self.pos['clyde']), self.pacman_lives_number, self.pacman_direction, self.is_enemy_invulnerable, self.pacman_invulnerable_ticks, self.inky_movement_turns, self.inky_last_choice, self.clyde_movement_turns, self.clyde_last_choice, copy.deepcopy(self.boosts_dict))
         return res
 
     @classmethod
@@ -93,10 +108,23 @@ class Tree():
             for child in tree.children:
                 self.build_pacman_tree(child, initial_board, depth - 1, not(is_packman_turn), heuristique)
         else:
-            inky_direction = self.modified_determineDirection_function(initial_board, tree.pos['inky'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['inky'][1], tree.pos['inky'][0], 'inky', tree.is_enemy_invulnerable)
-            pinky_direction = self.modified_determineDirection_function(initial_board, tree.pos['pinky'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['pinky'][1], tree.pos['pinky'][0], 'pinky', tree.is_enemy_invulnerable)
-            blinky_direction = self.modified_determineDirection_function(initial_board, tree.pos['blinky'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['blinky'][1], tree.pos['blinky'][0], 'blinky', tree.is_enemy_invulnerable)
-            clyde_direction = self.modified_determineDirection_function(initial_board, tree.pos['clyde'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['clyde'][1], tree.pos['clyde'][0], 'clyde', tree.is_enemy_invulnerable)
+            pacman_pos = str(tuple(tree.pos['pacman']))
+            
+            if pacman_pos in tree.boosts_dict:
+                if not(tree.boosts_dict[pacman_pos]):
+                    tree.boosts_dict[pacman_pos] = True
+                    
+                    if tree.is_enemy_invulnerable:
+                        tree.is_enemy_invulnerable = False
+                    else:
+                        tree.pacman_invulnerable_ticks -= 1
+                
+            tree._validate_pacman_state()
+            
+            inky_direction = self.modified_determineDirection_function(tree, initial_board, tree.pos['inky'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['inky'][1], tree.pos['inky'][0], 'inky', tree.is_enemy_invulnerable)
+            pinky_direction = self.modified_determineDirection_function(tree, initial_board, tree.pos['pinky'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['pinky'][1], tree.pos['pinky'][0], 'pinky', tree.is_enemy_invulnerable)
+            blinky_direction = self.modified_determineDirection_function(tree, initial_board, tree.pos['blinky'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['blinky'][1], tree.pos['blinky'][0], 'blinky', tree.is_enemy_invulnerable)
+            clyde_direction = self.modified_determineDirection_function(tree, initial_board, tree.pos['clyde'], tree.pos['pacman'][1], tree.pos['pacman'][0], tree.pacman_direction, tree.pos['clyde'][1], tree.pos['clyde'][0], 'clyde', tree.is_enemy_invulnerable)
 
             child = tree.clone()
             child.children = []
@@ -111,16 +139,28 @@ class Tree():
             tree.children.append(child) 
             self.build_pacman_tree(tree.children[-1], initial_board, depth - 1, not(is_packman_turn), heuristique)
 
+    def _validate_pacman_state(self):
+        if not(self.is_enemy_invulnerable):
+            if self.pacman_invulnerable_ticks == Pacman.ticks:   # Pacman.ticks (50) indicates Pacman barley became invulnerable
+                self.pacman_invulnerable_ticks -= 1
+
+            elif self.pacman_invulnerable_ticks == 0:  # Pacman runs out of his invulnerability so states are returned to normal
+                self.pacman_invulnerable_ticks = Pacman.ticks
+                self.is_enemy_invulnerable = not(self.is_enemy_invulnerable)
+            
+            else:                                       # Pacman loses a tick normally when invulnerable
+                self.pacman_invulnerable_ticks -= 1
+
     @classmethod
-    def modified_determineDirection_function(self, board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable):
+    def modified_determineDirection_function(self, tree, board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable):
         if enemy_type == "blinky":
             return self.modified_blinky_movement_function(board, start, pacman_y, pacman_x, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable)
         elif enemy_type == "inky":
-            return self.modified_inky_movement_function(board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable)
+            return self.modified_inky_movement_function(tree, board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable)
         if enemy_type == "pinky":
             return self.modified_pinky_movement_function(board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable)
         elif enemy_type == "clyde":
-            return self.modified_clyde_movement_function(board, enemy_y, enemy_x, is_enemy_invulnerable)
+            return self.modified_clyde_movement_function(tree, board, enemy_y, enemy_x, is_enemy_invulnerable)
 
     @classmethod
     def modified_determine_path_function(self, board, start, endpoint_y, endpoint_x, enemy_type, is_enemy_invulnerable):
@@ -162,7 +202,6 @@ class Tree():
             elif enemy_x > path[distance][0]:
                 return 'Left'
 
-    @classmethod
     def modified_random_choice_function(self, enemy_type):
         if enemy_type == 'inky':
             if self.inky_movement_turns == 15 or self.inky_last_choice == None:
@@ -179,31 +218,30 @@ class Tree():
         return self.modified_path_finding_direction_function(path, enemy_y, enemy_x)
 
     @classmethod
-    def modified_inky_movement_function(self, board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable):
-        choice = self.modified_random_choice_function('inky')
-        self.modified__inky_and_clyde_movement_turns_function()
+    def modified_inky_movement_function(self, tree, board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable):
+        choice = tree.modified_random_choice_function('inky')
+        tree.modified__inky_and_clyde_movement_turns_function(True)
 
         if choice <= .33:
             return self.modified_blinky_movement_function(board, start, pacman_y, pacman_x, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable)    
         elif choice <= .75:
-            return self.modified_clyde_movement_function(board, enemy_y, enemy_x, is_enemy_invulnerable)
+            return self.modified_clyde_movement_function(tree, board, enemy_y, enemy_x, is_enemy_invulnerable)
         elif choice <= 1:
             return self.modified_pinky_movement_function(board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable)
 
-    @classmethod
-    def modified__inky_and_clyde_movement_turns_function(is_inky):
+    def modified__inky_and_clyde_movement_turns_function(self, is_inky):
         if is_inky:
-            Tree.inky_movement_turns -= 1
+            self.inky_movement_turns -= 1
 
-            if Tree.inky_movement_turns == 0:
-                Tree.inky_movement_turns = 15
-                Tree.inky_last_choice = None
+            if self.inky_movement_turns == 0:
+                self.inky_movement_turns = 15
+                self.inky_last_choice = None
         else:
-            Tree.clyde_movement_turns -= 1
+            self.clyde_movement_turns -= 1
 
-            if Tree.clyde_movement_turns == 0:
-                Tree.clyde_movement_turns = 15
-                Tree.clyde_last_choice = None
+            if self.clyde_movement_turns == 0:
+                self.clyde_movement_turns = 15
+                self.clyde_last_choice = None
 
     @classmethod
     def modified_pinky_movement_function(self, board, start, pacman_y, pacman_x, pacman_direction, enemy_y, enemy_x, enemy_type, is_enemy_invulnerable):
@@ -244,9 +282,9 @@ class Tree():
         return endpoint_y, endpoint_x
     
     @classmethod
-    def modified_clyde_movement_function(self, board, enemy_y, enemy_x, is_enemy_invulnerable):
-        choice = self.modified_random_choice_function('clyde')
-        self.modified__inky_and_clyde_movement_turns_function()
+    def modified_clyde_movement_function(self, tree, board, enemy_y, enemy_x, is_enemy_invulnerable):
+        choice = tree.modified_random_choice_function('clyde')
+        tree.modified__inky_and_clyde_movement_turns_function(False)
         random_direction = self.modified_random_direction_function(choice)
         
         if self.modified_valid_direction_function(board, enemy_y, enemy_x, random_direction):

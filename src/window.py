@@ -1,3 +1,4 @@
+import ast
 import tkinter as tk
 import math
 from board import Board
@@ -257,50 +258,72 @@ class Window():
                 self.ai_no_remaining_moves = False
             
             if not(self._ai_mode):
-                print(self.board.pacman.return_location(), end="")
-                print({enemy.enemy_type : (enemy.x, enemy.y) for enemy in self.board.enemies})
                 self.board.update_directions()
                 self.board.update_board()
             else:
-                print(self.ai_current_tree.pos)
-                self.board.pacman.change_direction(self.ai_current_tree.pacman_direction)
-                self.board.pacman.direction_image(self._images)
-                self.board.update_directions()
-                
                 self.ai_current_tree = self.ai_current_tree.children[self.ai_next_positions[self.ai_next_move_index]]
                 self.ai_next_move_index += 1
                 
+                print(self.ai_current_tree.pos, self.ai_next_move_index)
                 
-                self.board.game_objects = { objs for rows in self.board.Gamestate for objs in rows if objs is not None }
-                self.board.pacman = self.board.pacman_location()
-                y, x = self.board.pacman.return_location()
-                self.board._validate_movement(y, x)       
-                for enemy in self.board.enemies:
-                    enemy.last_location = enemy.return_location()
-                    if enemy.enemy_type == Enemy.blinky:
-                        enemy.x = self.ai_current_tree.pos['blinky'][0]
-                        enemy.y = self.ai_current_tree.pos['blinky'][1]
-                    elif enemy.enemy_type == Enemy.inky:
-                        enemy.x = self.ai_current_tree.pos['inky'][0]
-                        enemy.y = self.ai_current_tree.pos['inky'][1]
-                    elif enemy.enemy_type == Enemy.pinky:
-                        enemy.x = self.ai_current_tree.pos['pinky'][0]
-                        enemy.y = self.ai_current_tree.pos['pinky'][1]
-                    else:
-                        enemy.x = self.ai_current_tree.pos['clyde'][0]
-                        enemy.y = self.ai_current_tree.pos['clyde'][1]
-                
-                    if (enemy.y, enemy.x) == (y, x):
-                        self.board._validate_enemy_death_or_kill(enemy)
-                    else:
-                        self.board._update_enemy_movement(enemy)
-                self.board._game_continuation(y,x)
-                
+                self.board.pacman.change_direction(self.ai_current_tree.pacman_direction)
+                self.board.pacman.direction_image(self._images)
+                self.board.update_directions()
+                    
                 if self.ai_next_move_index == len(self.ai_next_positions):
                     self.ai_no_remaining_moves = True
                 else:
                     self.ai_current_tree = self.ai_current_tree.children[self.ai_next_positions[self.ai_next_move_index]]
                     self.ai_next_move_index += 1
+                    
+                    print(self.ai_current_tree.pos, self.ai_next_move_index)
+                    
+                    self.board.game_objects = { objs for rows in self.board.Gamestate for objs in rows if objs is not None }
+                    self.board.pacman = self.board.pacman_location()
+                    
+                    # update gamestate
+                    y, x = self.board.pacman.return_location()
+                    self.board._validate_movement(y, x)       
+                    #   validate_pacman_state => in class Tree
+                    self.board._validate_pacman_state()
+                    #   validate_enemy_movement
+                    for enemy in self.board.enemies:
+                        enemy.last_location = enemy.return_location()
+                        if enemy.enemy_type == Enemy.blinky:
+                            enemy.x = self.ai_current_tree.pos['blinky'][0]
+                            enemy.y = self.ai_current_tree.pos['blinky'][1]
+                        elif enemy.enemy_type == Enemy.inky:
+                            enemy.x = self.ai_current_tree.pos['inky'][0]
+                            enemy.y = self.ai_current_tree.pos['inky'][1]
+                        elif enemy.enemy_type == Enemy.pinky:
+                            enemy.x = self.ai_current_tree.pos['pinky'][0]
+                            enemy.y = self.ai_current_tree.pos['pinky'][1]
+                        else:
+                            enemy.x = self.ai_current_tree.pos['clyde'][0]
+                            enemy.y = self.ai_current_tree.pos['clyde'][1]
+
+                        self.board._update_previous_board_square(enemy)
+                        
+                        if (enemy.y, enemy.x) == (y, x):
+                            self.board._validate_enemy_death_or_kill(enemy)
+                        else:
+                            self.board._update_enemy_movement(enemy)
+                    self.board._game_continuation(y, x) 
+                    
+                    self.board.pacman.lives = self.ai_current_tree.pacman_lives_number
+                    self.board.pacman.direction = self.ai_current_tree.pacman_direction
+                    self.board.pacman.invulnerable = not(self.ai_current_tree.is_enemy_invulnerable)
+                    for e in self.board.enemies:
+                        e.invulnerable = self.ai_current_tree.is_enemy_invulnerable
+                    self.board.pacman.invulnerable_ticks = self.ai_current_tree.pacman_invulnerable_ticks
+                    for e in self.board.enemies:
+                        if e.enemy_type == Enemy.inky:
+                            e.movement_turns = self.ai_current_tree.inky_movement_turns
+                            e.last_choice = self.ai_current_tree.inky_last_choice
+                        elif e.enemy_type == Enemy.clyde:
+                            e.movement_turns = self.ai_current_tree.clyde_movement_turns
+                            e.last_choice = self.ai_current_tree.clyde_last_choice
+                    
             self._check_for_completion()
 
             if not self.board.game_over:
@@ -321,6 +344,7 @@ class Window():
             
             for i in range(children_length):
                 child = children[i]
+                
                 if child.value == tree_value:
                     self.ai_next_positions.append(i)
                     self.add_pos_indices(child)
@@ -328,12 +352,12 @@ class Window():
     
     def _compute_ai_move(self):
         self.ai_tree = Tree(0, [])
-        enemies_dict = {enemy.enemy_type : enemy for enemy in self.board.enemies}
-        self.ai_tree.set_tree_attributes(0, [], list(self.board.pacman.return_location())[::-1], list(enemies_dict[Enemy.inky].return_location())[::-1], list(enemies_dict[Enemy.pinky].return_location())[::-1],list(enemies_dict[Enemy.blinky].return_location())[::-1], list(enemies_dict[Enemy.clyde].return_location())[::-1], self.board.pacman.lives, self.board.pacman.direction, not(self.board.pacman.invulnerable))
+        if (self.ai_current_tree is not None):
+            self.ai_tree = self.ai_current_tree.clone()
 
         self.ai_current_tree = self.ai_tree
 
-        Tree.build_pacman_tree(self.ai_tree, self.board, 15, True, self.heuristique)
+        self.ai_tree.build_pacman_tree(self.ai_tree, self.board, 15, True, self.heuristique)
         Tree.alpha_beta_calculus(self.ai_tree, 15, -math.inf, math.inf, True)
         self.ai_next_move_index = 0
         self.ai_next_positions = []
