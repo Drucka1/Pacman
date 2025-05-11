@@ -327,17 +327,36 @@ class Window():
                     return
     
     def _compute_ai_move(self):
-        self.ai_tree = Tree(0, [])
-        enemies_dict = {enemy.enemy_type : enemy for enemy in self.board.enemies}
-        self.ai_tree.set_tree_attributes(0, [], list(self.board.pacman.return_location())[::-1], list(enemies_dict[Enemy.inky].return_location())[::-1], list(enemies_dict[Enemy.pinky].return_location())[::-1],list(enemies_dict[Enemy.blinky].return_location())[::-1], list(enemies_dict[Enemy.clyde].return_location())[::-1], self.board.pacman.lives, self.board.pacman.direction, not(self.board.pacman.invulnerable))
-
-        self.ai_current_tree = self.ai_tree
-
-        Tree.build_pacman_tree(self.ai_tree, self.board, 15, True, self.heuristique)
-        Tree.alpha_beta_calculus(self.ai_tree, 15, -math.inf, math.inf, True)
-        self.ai_next_move_index = 0
-        self.ai_next_positions = []
-        self.add_pos_indices(self.ai_tree)                    
+        board = self.board
+        pellets = [
+            (x, y)
+            for y, row in enumerate(board.Gamestate)
+            for x, obj in enumerate(row)
+            if isinstance(obj, Pickup) and obj.pickup_type == Pickup.pickup
+        ]
+        boosts = [
+            (x, y)
+            for y, row in enumerate(board.Gamestate)
+            for x, obj in enumerate(row)
+            if isinstance(obj, Pickup) and obj.pickup_type == Pickup.boostUp
+        ]
+        pos = {enemy.enemy_type : (enemy.x, enemy.y) for enemy in board.enemies}
+        pos['pacman'] = (board.pacman.x, board.pacman.y)
+        initial_depth = 8
+        tree, = Tree(
+            initial_depth,
+            board.pacman.score,
+            board.pacman.lives,
+            board.pacman.direction,
+            not board.pacman.invulnerable,
+            board.pacman.invulnerable_ticks,
+            board.enemies['inky'].last_choice,
+            board.enemies['inky'].movement_turns,
+            pellets,
+            boosts
+        )     
+        result = tree.alpha_beta(initial_depth, float('+inf'), float('-inf'), True)
+        
 
     @classmethod
     def display_pacman_tree_aux(cls, tree, i):
