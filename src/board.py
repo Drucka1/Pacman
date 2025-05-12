@@ -118,6 +118,10 @@ class Board():
         y, x = enemy.last_location
 
         if self.location_has_changed(enemy, enemy.last_location):
+            # Ne jamais écraser un mur !
+            if type(self[y][x]) == Wall:
+                return
+        
             if enemy.pickup_memory is not None:
                 self.restore_pickup(enemy, y, x)
 
