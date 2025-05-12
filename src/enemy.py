@@ -93,7 +93,7 @@ class Enemy(Character):
         if choice <= .33:
             self.blinky_movement(board, start, pacman)
 
-        elif choice <= .75:
+        elif choice <= .66:
             self.clyde_movement(board)
 
         elif choice <= 1:
@@ -240,7 +240,7 @@ class Enemy(Character):
         elif self.direction == 'Up':
             return type(board[y - 1][x]) != Wall
 
-    def random_choice(self) -> int or float:
+    def random_choice(self):
         ''' Inky and clyde have unstable movement, but the movement choices occur every 15 updates.
             So the last choice is saved to keep it going for 15 updates in a row. '''
         if self.movement_turns == 15 or self.last_choice == None:

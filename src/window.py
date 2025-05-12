@@ -60,11 +60,6 @@ class Window():
         x = (screen_width - self._width) // 2
         y = (screen_height - self._height) // 2
         self._master.geometry(f"{self._width}x{self._height}+{x}+{y}")
-        self.ai_next_positions = []
-        self.ai_tree = None
-        self.ai_current_tree = None
-        self.ai_no_remaining_moves = True
-        self.ai_next_move_index = 0
 
     # Drawing Functions #
     def _draw_board(self) -> None:
@@ -252,9 +247,8 @@ class Window():
         '''
 
         if not self._pause:
-            if self._ai_mode and self.ai_no_remaining_moves and not self.board.game_over:
+            if self._ai_mode and not self.board.game_over:
                 self._compute_ai_move()
-                self.ai_no_remaining_moves = False
             
             if not(self._ai_mode):
                 print(self.board.pacman.return_location(), end="")
@@ -262,33 +256,15 @@ class Window():
                 self.board.update_directions()
                 self.board.update_board()
             else:
-                print(self.ai_current_tree.pos)
-                self.board.pacman.change_direction(self.ai_current_tree.pacman_direction)
                 self.board.pacman.direction_image(self._images)
                 self.board.update_directions()
-                
-                self.ai_current_tree = self.ai_current_tree.children[self.ai_next_positions[self.ai_next_move_index]]
-                self.ai_next_move_index += 1
-                
-                
+                                
                 self.board.game_objects = { objs for rows in self.board.Gamestate for objs in rows if objs is not None }
                 self.board.pacman = self.board.pacman_location()
                 y, x = self.board.pacman.return_location()
                 self.board._validate_movement(y, x)       
                 for enemy in self.board.enemies:
                     enemy.last_location = enemy.return_location()
-                    if enemy.enemy_type == Enemy.blinky:
-                        enemy.x = self.ai_current_tree.pos['blinky'][0]
-                        enemy.y = self.ai_current_tree.pos['blinky'][1]
-                    elif enemy.enemy_type == Enemy.inky:
-                        enemy.x = self.ai_current_tree.pos['inky'][0]
-                        enemy.y = self.ai_current_tree.pos['inky'][1]
-                    elif enemy.enemy_type == Enemy.pinky:
-                        enemy.x = self.ai_current_tree.pos['pinky'][0]
-                        enemy.y = self.ai_current_tree.pos['pinky'][1]
-                    else:
-                        enemy.x = self.ai_current_tree.pos['clyde'][0]
-                        enemy.y = self.ai_current_tree.pos['clyde'][1]
                 
                     if (enemy.y, enemy.x) == (y, x):
                         self.board._validate_enemy_death_or_kill(enemy)
@@ -296,11 +272,6 @@ class Window():
                         self.board._update_enemy_movement(enemy)
                 self.board._game_continuation(y,x)
                 
-                if self.ai_next_move_index == len(self.ai_next_positions):
-                    self.ai_no_remaining_moves = True
-                else:
-                    self.ai_current_tree = self.ai_current_tree.children[self.ai_next_positions[self.ai_next_move_index]]
-                    self.ai_next_move_index += 1
             self._check_for_completion()
 
             if not self.board.game_over:
@@ -310,53 +281,50 @@ class Window():
             self._canvas.create_image(self._width / 2, self._height / 2,
                                       image = self._images.return_image('game_paused') )
             self.check_pause()
-        
-    
-    def add_pos_indices(self, tree):
-        children = tree.children
-        children_length = len(children)
-        
-        if children_length > 0:
-            tree_value = tree.value
-            
-            for i in range(children_length):
-                child = children[i]
-                if child.value == tree_value:
-                    self.ai_next_positions.append(i)
-                    self.add_pos_indices(child)
-                    return
-    
+               
     def _compute_ai_move(self):
         board = self.board
         pellets = [
             (x, y)
             for y, row in enumerate(board.Gamestate)
             for x, obj in enumerate(row)
-            if isinstance(obj, Pickup) and obj.pickup_type == Pickup.pickup
+            if isinstance(obj, Pickup) and not obj.boost
         ]
         boosts = [
             (x, y)
             for y, row in enumerate(board.Gamestate)
             for x, obj in enumerate(row)
-            if isinstance(obj, Pickup) and obj.pickup_type == Pickup.boostUp
+            if isinstance(obj, Pickup) and obj.boost
         ]
-        pos = {enemy.enemy_type : (enemy.x, enemy.y) for enemy in board.enemies}
+        name = {Enemy.inky: 'inky', Enemy.blinky: 'blinky', Enemy.pinky: 'pinky', Enemy.clyde: 'clyde'}
+        pos = {name[enemy.enemy_type]: (enemy.x, enemy.y) for enemy in board.enemies}
         pos['pacman'] = (board.pacman.x, board.pacman.y)
-        initial_depth = 8
-        tree, = Tree(
+        initial_depth = 4
+        
+        last_choice = next(enemy.last_choice for enemy in board.enemies if enemy.enemy_type == Enemy.inky)
+        if last_choice != None:
+            if last_choice < .33 : last_choice = 'blinky'
+            elif last_choice < .66 : last_choice = 'clyde'
+            else : last_choice = 'pinky'
+        tree = Tree(
             initial_depth,
+            self.heuristique,
             board.pacman.score,
             board.pacman.lives,
             board.pacman.direction,
             not board.pacman.invulnerable,
             board.pacman.invulnerable_ticks,
-            board.enemies['inky'].last_choice,
-            board.enemies['inky'].movement_turns,
+            next(enemy.movement_turns for enemy in board.enemies if enemy.enemy_type == Enemy.inky),
+            last_choice,
+            pos,
             pellets,
             boosts
         )     
-        result = tree.alpha_beta(initial_depth, float('+inf'), float('-inf'), True)
         
+        direction = tree.alpha_beta(initial_depth, float('-inf'), float('+inf'), True)  
+        
+        self.board.pacman.change_direction(direction.name.capitalize())
+        self.board.update_board()           
 
     @classmethod
     def display_pacman_tree_aux(cls, tree, i):

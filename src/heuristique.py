@@ -1,3 +1,6 @@
+from random import random
+
+
 class Heuristique():
     def evaluate(self, tree, board):
         pass
@@ -14,7 +17,7 @@ class Heuristique():
         
         return min_dist
     
-class HeuristiqueNathan(Heuristique):  
+class HeuristiqueNathan(Heuristique):      
     def evaluate(self, tree, board):
         if tree.pacman_lives_number == 0:
             return float('-inf')
@@ -155,36 +158,25 @@ class HeuristiqueNathan(Heuristique):
         
         return 0
     
-class HeuristiqueClement(Heuristique):
-    def evaluate(self, tree, game):
+class HeuristiqueClement(Heuristique):    
+    def evaluate(self, tree):        
          # --- Constants ---
-        PENALTY_GHOST_TOUCHING = -5000
-        PENALTY_GHOST_IMMINENT = -1000
-        PENALTY_GHOST_VERY_CLOSE = -500
-        PENALTY_GHOST_NEAR = -100
-        PENALTY_DEAD_END = -1500
-        PENALTY_STUCK = -100
+        PENALTY_GHOST_TOUCHING = -500
+        PENALTY_GHOST_IMMINENT = -100
+        PENALTY_GHOST_VERY_CLOSE = -50
+        PENALTY_GHOST_NEAR = -10
+        PENALTY_DEAD_END = -150
+        PENALTY_STUCK = -10
 
-        BONUS_HUNT_SCARED_GHOST_EAT = 500
-        BONUS_HUNT_SCARED_GHOST_CLOSE = 100
+        BONUS_HUNT_SCARED_GHOST_EAT = 50
+        BONUS_HUNT_SCARED_GHOST_CLOSE = 10
     
         pacman_pos = tuple(tree.pos['pacman'])
-        prev_pos = getattr(tree, "prev_pacman_pos", None)  # Si dispo
 
-        if tree.pacman_lives_number == 0:
-            return float('-inf')
-
-        score = 0
+        score = 3000
 
         # --- Collecte des objets ---
-        pickups, boosts = [], []
-        for game_obj in game.game_objects:
-            obj_pos = (game_obj.x, game_obj.y)
-            if type(game_obj).__name__ == 'Pickup':
-                if game_obj.boost:
-                    boosts.append(obj_pos)
-                else:
-                    pickups.append(obj_pos)
+        pickups, boosts = tree.pellets, tree.boosts
 
         num_pellets = len(pickups)
         pellet_distances = [abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1]) for p in pickups]
@@ -210,7 +202,7 @@ class HeuristiqueClement(Heuristique):
             if not any(g == next_pos for g in current_ghost_positions):
                 free_exits += 1
 
-        if tree.is_enemy_invulnerable: 
+        if not tree.scatter_mode: 
             for ghost_pos in current_ghost_positions:
                 distance = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
                 min_dist_to_ghost = min(min_dist_to_ghost, distance)
@@ -247,33 +239,32 @@ class HeuristiqueClement(Heuristique):
                 score += 10 / (closest_boost_distance + 0.5)
 
         # --- Fantômes vulnérables ---
-        if tree.is_enemy_invulnerable:
+        if tree.scatter_mode:  # Corrected condition: apply when ghosts ARE vulnerable
             for ghost_pos in current_ghost_positions:
                 distance = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
                 if distance == 0:
                     score += BONUS_HUNT_SCARED_GHOST_EAT
                 elif distance < 3:
                     score += BONUS_HUNT_SCARED_GHOST_CLOSE / (distance + 0.1)
-            # Évite de gaspiller un boost
+            # Évite de gaspiller un boost (si déjà en scatter mode et proche d'un autre boost)
+            # This logic is now correctly nested under tree.scatter_mode
             if num_boosts > 0 and closest_boost_distance < 3:
-                score -= 100
-                
+                score -= 100  # Penalize slightly for being near a boost while already powered up
+
         # --- Mangé au centre si invulnérable et pickups au centres ---
-        if not tree.is_enemy_invulnerable and num_pellets > 0:
+        if tree.scatter_mode and num_pellets > 0:
             center_zone = [(x, y) for x in range(11, 17) for y in range(11, 17)]
             center_pickups = [p for p in pickups if p in center_zone]
             if center_pickups:
                 # Bonus proportionnel à la proximité du centre
                 for p in center_pickups:
                     dist = abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1])
-                    score += 200 / (dist + 0.5)        
+                    score += 200 / (dist + 0.5)
 
         # --- Évite de gaspiller un boost si Pacman est invulnérable et proche d'un boost ---
-        if not tree.is_enemy_invulnerable and num_boosts > 0 and closest_boost_distance < 3:
+        # This is a very strong penalty. Consider if this is too dominant.
+        if tree.scatter_mode and num_boosts > 0 and closest_boost_distance < 3:
             return float('-inf')
 
-        # --- Pénalise l'immobilisme ---
-        if prev_pos is not None and prev_pos == pacman_pos:
-            score += PENALTY_STUCK
-
+        print(score)
         return score
