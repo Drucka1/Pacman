@@ -27,7 +27,7 @@ class Board():
             game_ojects set with all the objects that are on the board. And the initial location
             of Pacman is set. '''
         score, lives, level = self.current_stats()
-        self.refresh_objects(level)
+        self.refresh_objects(level) 
         
         self.Gamestate = Board.create_board()
         self.Gamestate = self._pacman_board( self.square_height(), self.square_width() )
