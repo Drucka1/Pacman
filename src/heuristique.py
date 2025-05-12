@@ -4,54 +4,43 @@ from random import random
 class Heuristique():
     def evaluate(self, tree, board):
         pass
+
+    @staticmethod
+    def manhattan_dist(pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
     
-    @classmethod
-    def _find_closest_object_distance(self, pos, objects_list):
+    @staticmethod
+    def find_closest_object_distance(pos, objects_list):
         if not objects_list:
             return 100
         
         min_dist = float('inf')
         for obj_pos in objects_list:
-            dist = abs(pos[0] - obj_pos[0]) + abs(pos[1] - obj_pos[1])
+            dist = Heuristique.manhattan_dist(pos, obj_pos)
             min_dist = min(min_dist, dist)
         
         return min_dist
     
-class HeuristiqueNathan(Heuristique):      
+class HeuristiqueNathan(Heuristique):   
+    restricted_areas = [(13,11), (13,16), (12,11), (12,12), (12,13), (12,14), (12,15), (12,16),
+                    (14,11), (14,12), (14,13), (14,14), (14,15), (14,16),
+                    (11,13), (11,14), (15,13), (15,14)]
+    
     def evaluate(self, tree, board):
         if tree.pacman_lives_number == 0:
             return float('-inf')
         
-        pickups = []
-        ghosts = []
-        boost_pickups = []
-        pacman_pos = tuple(tree.pos['pacman'])
-
-        for game_obj in board.game_objects:
-            obj_pos = (game_obj.x, game_obj.y)
-            if type(game_obj).__name__ == 'Pickup':
-                if game_obj.boost:
-                    boost_pickups.append(obj_pos)
-                else:
-                    pickups.append(obj_pos)
-            elif type(game_obj).__name__ == 'Enemy':
-                ghosts.append(obj_pos)
-        
-        closest_pickup_dist = self._find_closest_object_distance(pacman_pos, pickups) if pickups else 100
-
         ghost_positions = []
-
-        restricted_areas = [(13,11), (13,16), (12,11), (12,12), (12,13), (12,14), (12,15), (12,16),
-                        (14,11), (14,12), (14,13), (14,14), (14,15), (14,16),
-                        (11,13), (11,14), (15,13), (15,14)]
+        pacman_pos = tree.pos['pacman']
+        boost_pickups = tree.boosts 
+        pickups = tree.pellets
+        for ghost in ['inky', 'pinky', 'blinky', 'clyde']:
+            ghost_positions.append(tree.pos[ghost])    
         
-        for enemy_type in ['inky', 'pinky', 'blinky', 'clyde']:
-            if enemy_type in tree.pos:
-                ghost_pos = tuple(tree.pos[enemy_type])
-                ghost_positions.append(ghost_pos)
+        closest_pickup_dist = Heuristique.find_closest_object_distance(pacman_pos, pickups) if pickups else 100
         
         danger_score = 0
-        if tree.is_enemy_invulnerable:
+        if tree.scatter_mode:
             for ghost_pos in ghost_positions:
                 ghost_dist = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
 
@@ -62,30 +51,30 @@ class HeuristiqueNathan(Heuristique):
                 elif ghost_dist < 5:
                     danger_score -= 200 / ghost_dist
                 
-                predicted_ghost_pos = self._predict_ghost_movement(ghost_pos, pacman_pos)
+                predicted_ghost_pos = HeuristiqueNathan.predict_ghost_movement(ghost_pos, pacman_pos)
                 predicted_dist = abs(pacman_pos[0] - predicted_ghost_pos[0]) + abs(pacman_pos[1] - predicted_ghost_pos[1])
 
                 if predicted_dist < 3:
                     danger_score -= 800
                 
-                if self._is_pacman_trapped(pacman_pos, ghost_positions):
+                if HeuristiqueNathan.is_pacman_trapped(pacman_pos, ghost_positions):
                     danger_score -= 1500
                 
-                tunnel_escape_value = self._evaluate_tunnel_escape(pacman_pos, ghost_positions)
+                tunnel_escape_value = HeuristiqueNathan.evaluate_tunnel_escape(pacman_pos, ghost_positions)
                 danger_score += tunnel_escape_value
         else:
-            if self._find_closest_object_distance(pacman_pos, boost_pickups) < 3: return float('-inf')
+            if Heuristique.find_closest_object_distance(pacman_pos, boost_pickups) < 3: return float('-inf')
             for ghost_pos in ghost_positions:
                 ghost_dist = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
 
                 ghost_y, ghost_x = ghost_pos[1], ghost_pos[0]
-                if (ghost_y, ghost_x) in restricted_areas:
+                if (ghost_y, ghost_x) in HeuristiqueNathan.restricted_areas:
                     continue
 
                 if ghost_dist < 5:
                     danger_score += 400 / (ghost_dist + 0.1)
 
-        closest_boost_dist = self._find_closest_object_distance(pacman_pos, boost_pickups) if boost_pickups else 100
+        closest_boost_dist = Heuristique.find_closest_object_distance(pacman_pos, boost_pickups) if boost_pickups else 100
 
         score = (
             + 80 * (1.0 / (closest_pickup_dist + 1))
@@ -96,8 +85,8 @@ class HeuristiqueNathan(Heuristique):
 
         return score
     
-    @classmethod
-    def _predict_ghost_movement(self, ghost_pos, pacman_pos):
+    @staticmethod
+    def predict_ghost_movement(ghost_pos, pacman_pos):
         ghost_x, ghost_y = ghost_pos
         pacman_x, pacman_y = pacman_pos
 
@@ -118,8 +107,8 @@ class HeuristiqueNathan(Heuristique):
         else:
             return (ghost_x, ghost_y + dy)
     
-    @classmethod
-    def _is_pacman_trapped(self, pacman_pos, ghost_positions):
+    @staticmethod
+    def is_pacman_trapped(pacman_pos, ghost_positions):
         if not ghost_positions:
             return False
         
@@ -139,8 +128,8 @@ class HeuristiqueNathan(Heuristique):
         
         return directions_blocked > 1
     
-    @classmethod
-    def _evaluate_tunnel_escape(self, pacman_pos, ghost_positions):
+    @staticmethod
+    def evaluate_tunnel_escape(pacman_pos, ghost_positions):
         tunnel_positions = [(0, 14), (27, 14)]
         
         if not ghost_positions:
@@ -152,33 +141,33 @@ class HeuristiqueNathan(Heuristique):
             min_ghost_dist = min(min_ghost_dist, ghost_dist)
         
         if min_ghost_dist < 5:
-            tunnel_dist = min(abs(pacman_pos[0] - tx) + abs(pacman_pos[1] - ty) for tx, ty in tunnel_positions)
-
-            tunnel_value = 300 / (tunnel_dist + 1) if tunnel_dist < 10 else 0
-        
+            tunnel_dist = min(abs(pacman_pos[0] - tx) + abs(pacman_pos[1] - ty) for tx, ty in tunnel_positions)        
         return 0
     
 class HeuristiqueClement(Heuristique):    
-    @staticmethod
-    def manhattan_dist(pos1, pos2):
-        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
     
-    def evaluate(self, tree):
+    def evaluate(self, tree, board):
         # --- Constants ---
-        PENALTY_GHOST_TOUCHING = -500
-        PENALTY_GHOST_IMMINENT = -100
-        PENALTY_GHOST_VERY_CLOSE = -50
-        PENALTY_GHOST_NEAR = -10
-        PENALTY_DEAD_END = -150
+        PENALTY_GHOST_TOUCHING = -5000  # Should be very high if it means certain death for this path
+        PENALTY_GHOST_IMMINENT = -400   # Was -100 (ghost at distance 1)
+        PENALTY_GHOST_VERY_CLOSE = -200 # Was -50  (ghost at distance 2)
+        PENALTY_GHOST_NEAR = -50        # Was -10  (ghost at distance 3 or 4)
+        PENALTY_DEAD_END = -300         # Was -150
+        # Add PENALTY_STUCK if you implement prev_pos tracking
+        # PENALTY_STUCK = -100 
 
-        BONUS_HUNT_SCARED_GHOST_EAT = 50
-        BONUS_HUNT_SCARED_GHOST_CLOSE = 10
+        BONUS_HUNT_SCARED_GHOST_EAT = 75 # Increased slightly
+        BONUS_HUNT_SCARED_GHOST_CLOSE = 20 # Increased slightly
     
         pacman_pos = tuple(tree.pos['pacman'])
+        # prev_pos = getattr(tree, "prev_pacman_pos", None) # For PENALTY_STUCK
 
-        score = 3000
+        score = 0 # Start score from 0 and build up positives and negatives
 
-        # --- Collecte des objets ---
+        # Add score for current Pacman score and lives as a baseline
+        score += tree.pacman_score * 0.1 # Small factor of game score
+        score += tree.pacman_lives_number * 500 # Value lives highly
+
         pickups, boosts = tree.pellets, tree.boosts
 
         num_pellets = len(pickups)
@@ -188,13 +177,11 @@ class HeuristiqueClement(Heuristique):
         boost_distances = [abs(pacman_pos[0] - b[0]) + abs(pacman_pos[1] - b[1]) for b in boosts]
         closest_boost_distance = min(boost_distances) if boost_distances else float('inf')
 
-        # --- Fantômes ---
         current_ghost_positions = []
         for enemy_type in ['inky', 'pinky', 'blinky', 'clyde']:
             if enemy_type in tree.pos:
-                current_ghost_positions.append(tuple(tree.pos[enemy_type]))
+                current_ghost_positions.append(tree.pos[enemy_type])
 
-        # --- Danger Fantômes ---
         min_dist_to_ghost = float('inf')
         ghosts_very_close = 0
         directions = [(0,1),(1,0),(0,-1),(-1,0)]
@@ -220,11 +207,9 @@ class HeuristiqueClement(Heuristique):
                 elif distance <= 4:
                     score += PENALTY_GHOST_NEAR
 
-        # Dead-end panic
         if free_exits <= 1 and ghosts_very_close > 0:
             score += PENALTY_DEAD_END
 
-        # --- Pickups ---
         if num_pellets > 0:
             score -= 8 * num_pellets
             if closest_pellet_distance != float('inf'):
@@ -232,7 +217,6 @@ class HeuristiqueClement(Heuristique):
         else:
             score += 2000
 
-        # --- Boosts ---
         if num_boosts > 0 and closest_boost_distance != float('inf'):
             if ghosts_very_close > 0:
                 score += 200 / (closest_boost_distance + 0.2)
@@ -241,24 +225,20 @@ class HeuristiqueClement(Heuristique):
             else:
                 score += 10 / (closest_boost_distance + 0.5)
 
-        # --- Fantômes vulnérables ---
-        if tree.scatter_mode:  # Corrected condition: apply when ghosts ARE vulnerable
+        if tree.scatter_mode:
             for ghost_pos in current_ghost_positions:
                 distance = abs(pacman_pos[0] - ghost_pos[0]) + abs(pacman_pos[1] - ghost_pos[1])
                 if distance == 0:
                     score += BONUS_HUNT_SCARED_GHOST_EAT
                 elif distance < 3:
                     score += BONUS_HUNT_SCARED_GHOST_CLOSE / (distance + 0.1)
-            # Évite de gaspiller un boost (si déjà en scatter mode et proche d'un autre boost)
-            # This logic is now correctly nested under tree.scatter_mode
             if num_boosts > 0 and closest_boost_distance < 3:
-                score -= 100  # Penalize slightly for being near a boost while already powered up
+                score -= 100
 
         if tree.scatter_mode and num_pellets > 0:
             center_zone = [(x, y) for x in range(11, 17) for y in range(11, 17)]
             center_pickups = [p for p in pickups if p in center_zone]
             if center_pickups:
-                # Bonus proportionnel à la proximité du centre
                 for p in center_pickups:
                     dist = abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1])
                     score += 200 / (dist + 0.5)
@@ -266,5 +246,4 @@ class HeuristiqueClement(Heuristique):
         if tree.scatter_mode and num_boosts > 0 and closest_boost_distance < 3:
             score = float('-inf')
             
-        print(score)
         return score

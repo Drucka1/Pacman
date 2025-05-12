@@ -6,7 +6,7 @@ from pacman import Pacman
 from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
-from tree import Tree
+from tree import Direction, Tree
 from heuristique import HeuristiqueClement, HeuristiqueNathan
 
 class Window():
@@ -251,8 +251,6 @@ class Window():
                 self._compute_ai_move()
             
             if not(self._ai_mode):
-                print(self.board.pacman.return_location(), end="")
-                print({enemy.enemy_type : (enemy.x, enemy.y) for enemy in self.board.enemies})
                 self.board.update_directions()
                 self.board.update_board()
             else:
@@ -299,19 +297,20 @@ class Window():
         name = {Enemy.inky: 'inky', Enemy.blinky: 'blinky', Enemy.pinky: 'pinky', Enemy.clyde: 'clyde'}
         pos = {name[enemy.enemy_type]: (enemy.x, enemy.y) for enemy in board.enemies}
         pos['pacman'] = (board.pacman.x, board.pacman.y)
-        initial_depth = 6
+        initial_depth = 5
         
         last_choice = next(enemy.last_choice for enemy in board.enemies if enemy.enemy_type == Enemy.inky)
         if last_choice != None:
             if last_choice < .33 : last_choice = 'blinky'
             elif last_choice < .66 : last_choice = 'clyde'
             else : last_choice = 'pinky'
+                   
         tree = Tree(
             initial_depth,
             self.heuristique,
             board.pacman.score,
             board.pacman.lives,
-            board.pacman.direction,
+            Direction[board.pacman.direction.upper()],
             board.pacman.invulnerable,
             board.pacman.invulnerable_ticks,
             next(enemy.movement_turns for enemy in board.enemies if enemy.enemy_type == Enemy.inky),
@@ -322,8 +321,8 @@ class Window():
         )     
         
         direction = tree.alpha_beta(initial_depth, float('-inf'), float('+inf'), True)  
-        
-        self.board.pacman.change_direction(direction.name.capitalize())
+        print(direction)
+        if direction != None: self.board.pacman.change_direction(direction.name.capitalize())
         self.board.update_board()           
 
     @classmethod

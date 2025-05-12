@@ -8,6 +8,20 @@ class Direction(Enum):
     RIGHT = (1,0)
     UP = (0,-1)
     DOWN = (0,1)
+    
+    def get_opposite_direction(self):
+        if self == Direction.UP: return Direction.DOWN
+        if self == Direction.DOWN: return Direction.UP
+        if self == Direction.LEFT: return Direction.RIGHT
+        if self == Direction.RIGHT: return Direction.LEFT
+        return None
+    
+    @staticmethod
+    def toDirection(direction: str):
+        try:
+            return Direction[direction.upper()]
+        except KeyError:
+            return None
 
 class Tree():
     initial_pos = {
@@ -149,7 +163,7 @@ class Tree():
         else:
             # Should not happen if path is valid
             return None
-        
+       
     def direction_valide(self, pacman_pos, direction):
         x, y = pacman_pos
         dx, dy = direction.value
@@ -238,13 +252,22 @@ class Tree():
             return self.value
         
         if depth == 0 :
-            self.value = Tree.heuristique.evaluate(self) 
+            self.value = Tree.heuristique.evaluate(self, Tree.board) 
             return self.value
    
         if doesMaximize:
             maxEval = float('-inf')
             best_direction = None
             for direction in [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]:
+                # Ignore the opposite direction unless it's the only valid move
+                if direction == self.pacman_direction.get_opposite_direction():
+                    # Vérifie s'il existe au moins une autre direction valide
+                    other_valid = [
+                        d for d in [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]
+                        if d != direction and self.direction_valide(self.pos['pacman'], d)
+                    ]
+                    if other_valid:
+                        continue 
                 if self.direction_valide(self.pos['pacman'], direction):
                     child = self.clone()
                     child.pacman_direction = direction
@@ -261,7 +284,7 @@ class Tree():
             return maxEval
         else:
             minEval = float('inf')
-            if not self.scatter_mode: #comportement deterministe si effrayé
+            if self.scatter_mode: #comportement deterministe si effrayé
                 child = self.clone()
                 child.update_ghosts_move([Tree.get_first_direction_a_star(child.pos[ghost], child.initial_pos[ghost]) for ghost in ['inky', 'pinky', 'blinky', 'clyde']])
                 evaluation = child.alpha_beta(depth - 1, alpha, beta, True)
