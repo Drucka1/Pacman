@@ -299,7 +299,7 @@ class Window():
         name = {Enemy.inky: 'inky', Enemy.blinky: 'blinky', Enemy.pinky: 'pinky', Enemy.clyde: 'clyde'}
         pos = {name[enemy.enemy_type]: (enemy.x, enemy.y) for enemy in board.enemies}
         pos['pacman'] = (board.pacman.x, board.pacman.y)
-        initial_depth = 4
+        initial_depth = 6
         
         last_choice = next(enemy.last_choice for enemy in board.enemies if enemy.enemy_type == Enemy.inky)
         if last_choice != None:
@@ -312,7 +312,7 @@ class Window():
             board.pacman.score,
             board.pacman.lives,
             board.pacman.direction,
-            not board.pacman.invulnerable,
+            board.pacman.invulnerable,
             board.pacman.invulnerable_ticks,
             next(enemy.movement_turns for enemy in board.enemies if enemy.enemy_type == Enemy.inky),
             last_choice,

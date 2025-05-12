@@ -159,14 +159,17 @@ class HeuristiqueNathan(Heuristique):
         return 0
     
 class HeuristiqueClement(Heuristique):    
-    def evaluate(self, tree):        
-         # --- Constants ---
+    @staticmethod
+    def manhattan_dist(pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+    
+    def evaluate(self, tree):
+        # --- Constants ---
         PENALTY_GHOST_TOUCHING = -500
         PENALTY_GHOST_IMMINENT = -100
         PENALTY_GHOST_VERY_CLOSE = -50
         PENALTY_GHOST_NEAR = -10
         PENALTY_DEAD_END = -150
-        PENALTY_STUCK = -10
 
         BONUS_HUNT_SCARED_GHOST_EAT = 50
         BONUS_HUNT_SCARED_GHOST_CLOSE = 10
@@ -251,7 +254,6 @@ class HeuristiqueClement(Heuristique):
             if num_boosts > 0 and closest_boost_distance < 3:
                 score -= 100  # Penalize slightly for being near a boost while already powered up
 
-        # --- Mangé au centre si invulnérable et pickups au centres ---
         if tree.scatter_mode and num_pellets > 0:
             center_zone = [(x, y) for x in range(11, 17) for y in range(11, 17)]
             center_pickups = [p for p in pickups if p in center_zone]
@@ -261,10 +263,8 @@ class HeuristiqueClement(Heuristique):
                     dist = abs(pacman_pos[0] - p[0]) + abs(pacman_pos[1] - p[1])
                     score += 200 / (dist + 0.5)
 
-        # --- Évite de gaspiller un boost si Pacman est invulnérable et proche d'un boost ---
-        # This is a very strong penalty. Consider if this is too dominant.
         if tree.scatter_mode and num_boosts > 0 and closest_boost_distance < 3:
-            return float('-inf')
-
+            score = float('-inf')
+            
         print(score)
         return score

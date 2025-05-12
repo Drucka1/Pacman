@@ -1,4 +1,5 @@
 from collections import deque
+import heapq
 from bitarray import bitarray
 from enum import Enum
 
@@ -29,7 +30,7 @@ class Tree():
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
-        bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
+        bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
         bitarray([0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0]),
         bitarray([0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
@@ -73,39 +74,80 @@ class Tree():
                     self.pacman_direction, self.scatter_mode, self.scatter_chrono, self.inky_movement_turns, 
                     self.inky_last_choice, self.pos.copy(), self.pellets.copy(), self.boosts.copy())
     
-    def bfs_function(start, endpoint):
-        queue = deque([[start]])
-        seen = set([start])
+    @staticmethod
+    def _manhattan_distance(pos1, pos2):
+        """Computes the Manhattan distance between two points."""
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
-        while queue:
-            path = queue.popleft()
-            x, y = path[-1]
+    @staticmethod
+    def a_star_function(start, endpoint):
+        """
+        A* pathfinding algorithm.
+        Returns the path as a list of (x, y) tuples, or None if no path is found.
+        """
+        if start == endpoint:
+            return [start]
 
-            if (x, y) == endpoint:
+        open_set = []  # Priority queue: (f_score, g_score, position, path_list)
+        # g_score is used as a tie-breaker for f_score to prefer longer paths if f_scores are equal,
+        # which can sometimes lead to more 'natural' looking paths, though not strictly necessary for correctness.
+        # A simpler (f_score, position, path_list) would also work.
+        heapq.heappush(open_set, (Tree._manhattan_distance(start, endpoint), 0, start, [start]))
+
+        # g_scores: cost from start to a node
+        g_scores = {start: 0}
+        
+        # came_from is implicitly handled by storing the full path in the priority queue items
+
+        while open_set:
+            f_s, g_s, current_pos, path = heapq.heappop(open_set)
+
+            if current_pos == endpoint:
                 return path
 
-            for x2, y2 in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):
-                if (0 <= x2 < len(Tree.board[0]) and 0 <= y2 < len(Tree.board)
-                    and Tree.board[y2][x2] != 0 and (x2, y2) not in seen):
-                    queue.append(path + [(x2, y2)])
-                    seen.add((x2, y2))
+            # Explore neighbors
+            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]: # Down, Up, Right, Left
+                neighbor_pos = (current_pos[0] + dx, current_pos[1] + dy)
                 
-    def get_first_direction_bfs(start, endpoint):
-        path = Tree.bfs_function(start, endpoint)
+                # Check bounds and walls
+                if not (0 <= neighbor_pos[0] < len(Tree.board[0]) and \
+                        0 <= neighbor_pos[1] < len(Tree.board) and \
+                        Tree.board[neighbor_pos[1]][neighbor_pos[0]] == 1):
+                    continue
+
+                tentative_g_score = g_s + 1 # Cost to move to a neighbor is 1
+
+                if tentative_g_score < g_scores.get(neighbor_pos, float('inf')):
+                    g_scores[neighbor_pos] = tentative_g_score
+                    h_score = Tree._manhattan_distance(neighbor_pos, endpoint)
+                    f_score = tentative_g_score + h_score
+                    new_path = path + [neighbor_pos]
+                    heapq.heappush(open_set, (f_score, tentative_g_score, neighbor_pos, new_path))
+        
+        return None
+    
+    @staticmethod
+    def get_first_direction_a_star(start, endpoint):
+        """
+        Gets the first direction of the shortest path from start to endpoint using A*.
+        """
+        path = Tree.a_star_function(start, endpoint)
         if not path or len(path) < 2:
-            return None  # Pas de chemin ou déjà sur la case
+            return None  # No path or already at the destination
 
         x0, y0 = path[0]
         x1, y1 = path[1]
+
         if x1 == x0 + 1 and y1 == y0:
             return Direction.RIGHT
         elif x1 == x0 - 1 and y1 == y0:
             return Direction.LEFT
-        elif x1 == x0 and y1 == y0 + 1:
+        elif x1 == x0 and y1 == y0 + 1: # Board y-axis increases downwards
             return Direction.DOWN
-        elif x1 == x0 and y1 == y0 - 1:
+        elif x1 == x0 and y1 == y0 - 1: # Board y-axis decreases upwards
             return Direction.UP
         else:
+            # Should not happen if path is valid
             return None
         
     def direction_valide(self, pacman_pos, direction):
@@ -113,7 +155,7 @@ class Tree():
         dx, dy = direction.value
         nx, ny = x + dx, y + dy
         if 0 <= nx < len(self.board[0]) and 0 <= ny < len(self.board):
-            return self.board[ny][nx] != 0
+            return self.board[ny][nx] == 1
         return False
     
     def update_pacman_move(self, direction):
@@ -134,7 +176,7 @@ class Tree():
                     self.boosts.remove((nx, ny))
                 if len(self.boosts) == 0 and len(self.pellets) == 0:
                     self.value = float('inf')
-                print("Pacman bouge vers", nx, ny, "score:", self.pacman_score, "pellets restants:", len(self.pellets))
+                
 
     def update_ghosts_move(self, directions):
         ghosts = ['inky', 'pinky', 'blinky', 'clyde']
@@ -156,14 +198,15 @@ class Tree():
             if self.pos['pacman'] == self.pos[ghost]:
                 if not self.scatter_mode:
                     self.pacman_lives_number -= 1
+                    self.value = float('-inf')
                 else:
                     self.pacman_score += 100
                 if self.pacman_lives_number == 0:
                     self.value = float('-inf')
 
     def get_blinky_direction(self, inky = False):
-        if inky : return Tree.get_first_direction_bfs(self.pos['inky'],self.pos['pacman'])
-        else: return Tree.get_first_direction_bfs(self.pos['blinky'],self.pos['pacman'])
+        if inky : return Tree.get_first_direction_a_star(self.pos['inky'],self.pos['pacman'])
+        else: return Tree.get_first_direction_a_star(self.pos['blinky'],self.pos['pacman'])
 
     def get_pinky_direction(self, inky=False):
         x, y = self.pos['pacman']
@@ -174,10 +217,10 @@ class Tree():
             target_x = max(0, min(target[0], len(self.board[0]) - 1))
             target_y = max(0, min(target[1], len(self.board) - 1))
             if self.board[target_y][target_x] != 0:
-                if inky: return Tree.get_first_direction_bfs(self.pos['inky'], (target_x, target_y))
-                else: return Tree.get_first_direction_bfs(self.pos['pinky'], (target_x, target_y))
-        if inky: return Tree.get_first_direction_bfs(self.pos['inky'], self.pos['pacman'])
-        else: return Tree.get_first_direction_bfs(self.pos['pinky'], self.pos['pacman'])
+                if inky: return Tree.get_first_direction_a_star(self.pos['inky'], (target_x, target_y))
+                else: return Tree.get_first_direction_a_star(self.pos['pinky'], (target_x, target_y))
+        if inky: return Tree.get_first_direction_a_star(self.pos['inky'], self.pos['pacman'])
+        else: return Tree.get_first_direction_a_star(self.pos['pinky'], self.pos['pacman'])
         
     def get_clyde_direction(self, inky = False):
         if inky : return [direction for direction in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN] 
@@ -191,12 +234,11 @@ class Tree():
         if self.inky_last_choice == 'clyde': return self.get_clyde_direction(inky=True)
 
     def alpha_beta(self, depth, alpha, beta, doesMaximize): 
-        if self.value != None : return self.value
+        if self.value != None : 
+            return self.value
         
         if depth == 0 :
-            res = Tree.heuristique.evaluate(self) 
-            if doesMaximize : self.value = res
-            else : self.value = -res
+            self.value = Tree.heuristique.evaluate(self) 
             return self.value
    
         if doesMaximize:
@@ -204,7 +246,6 @@ class Tree():
             best_direction = None
             for direction in [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]:
                 if self.direction_valide(self.pos['pacman'], direction):
-                    print(direction)
                     child = self.clone()
                     child.pacman_direction = direction
                     child.update_pacman_move(direction)
@@ -222,7 +263,7 @@ class Tree():
             minEval = float('inf')
             if not self.scatter_mode: #comportement deterministe si effrayé
                 child = self.clone()
-                child.update_ghosts_move([Tree.get_first_direction_bfs(child.pos[ghost], child.initial_pos[ghost]) for ghost in ['inky', 'pinky', 'blinky', 'clyde']])
+                child.update_ghosts_move([Tree.get_first_direction_a_star(child.pos[ghost], child.initial_pos[ghost]) for ghost in ['inky', 'pinky', 'blinky', 'clyde']])
                 evaluation = child.alpha_beta(depth - 1, alpha, beta, True)
                 minEval = min(minEval, evaluation)
                 beta = min(beta, evaluation)
