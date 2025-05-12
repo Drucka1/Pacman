@@ -1,7 +1,9 @@
 from collections import deque
 import heapq
+from random import shuffle
 from bitarray import bitarray
 from enum import Enum
+from multiprocessing import Pool
 
 class Direction(Enum):
     LEFT = (-1,0)
@@ -45,9 +47,9 @@ class Tree():
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
         bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
-        bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
-        bitarray([0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0]),
-        bitarray([0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
+        bitarray([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
+        bitarray([0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0]),
+        bitarray([0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
         bitarray([0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
         bitarray([0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0]),
         bitarray([0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0]),
@@ -258,17 +260,11 @@ class Tree():
         if doesMaximize:
             maxEval = float('-inf')
             best_direction = None
-            for direction in [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]:
-                # Ignore the opposite direction unless it's the only valid move
-                if direction == self.pacman_direction.get_opposite_direction():
-                    # Vérifie s'il existe au moins une autre direction valide
-                    other_valid = [
-                        d for d in [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]
-                        if d != direction and self.direction_valide(self.pos['pacman'], d)
-                    ]
-                    if other_valid:
-                        continue 
-                if self.direction_valide(self.pos['pacman'], direction):
+            directions = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]
+            shuffle(directions)
+            for direction in directions:
+                if direction != self.pacman_direction.get_opposite_direction() \
+                    and self.direction_valide(self.pos['pacman'], direction):
                     child = self.clone()
                     child.pacman_direction = direction
                     child.update_pacman_move(direction)
@@ -276,20 +272,27 @@ class Tree():
                     if evaluation > maxEval:
                         maxEval = evaluation
                         best_direction = direction
+                    if best_direction is None: best_direction = direction
                     alpha = max(alpha, evaluation)
                     if beta <= alpha: break
             if depth == Tree.initial_depth:
-                return best_direction      
+                if best_direction is not None:
+                    return best_direction
+                return self.pacman_direction  # ou une direction par défaut
             self.value = maxEval
             return maxEval
         else:
             minEval = float('inf')
-            if self.scatter_mode: #comportement deterministe si effrayé
-                child = self.clone()
-                child.update_ghosts_move([Tree.get_first_direction_a_star(child.pos[ghost], child.initial_pos[ghost]) for ghost in ['inky', 'pinky', 'blinky', 'clyde']])
-                evaluation = child.alpha_beta(depth - 1, alpha, beta, True)
-                minEval = min(minEval, evaluation)
-                beta = min(beta, evaluation)
+            if self.scatter_mode:  # comportement deterministe si effrayé sauf clyde
+                for clyde_direction in self.get_clyde_direction():
+                    child = self.clone()
+                    child.update_ghosts_move(
+                        [Tree.get_first_direction_a_star(child.pos[ghost], child.initial_pos[ghost]) for ghost in ['inky', 'pinky', 'blinky']]
+                        + [clyde_direction])
+                    evaluation = child.alpha_beta(depth - 1, alpha, beta, True)
+                    minEval = min(minEval, evaluation)
+                    beta = min(beta, evaluation)
+                    if beta <= alpha: break
                 self.value = minEval
                 return minEval
  

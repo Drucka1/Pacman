@@ -7,7 +7,7 @@ from enemy import Enemy
 from pickup import Pickup
 from wall import Wall
 from tree import Direction, Tree
-from heuristique import HeuristiqueClement, HeuristiqueNathan
+from heuristique import *
 
 class Window():
 
@@ -233,7 +233,9 @@ class Window():
         if self._ai_mode:
             self._ai_button.config(text="AI: ON")
             if which_heuristique == '1' : self.heuristique = HeuristiqueNathan()
-            else : self.heuristique = HeuristiqueClement()
+            elif which_heuristique == '2' : self.heuristique = HeuristiqueClement()
+            else : self.heuristique = HeuristiqueSimple()
+            print(self.heuristique)
         else:
             self._ai_button.config(text="AI: OFF")
             self.heuristique = None
@@ -297,7 +299,7 @@ class Window():
         name = {Enemy.inky: 'inky', Enemy.blinky: 'blinky', Enemy.pinky: 'pinky', Enemy.clyde: 'clyde'}
         pos = {name[enemy.enemy_type]: (enemy.x, enemy.y) for enemy in board.enemies}
         pos['pacman'] = (board.pacman.x, board.pacman.y)
-        initial_depth = 5
+        initial_depth = 6
         
         last_choice = next(enemy.last_choice for enemy in board.enemies if enemy.enemy_type == Enemy.inky)
         if last_choice != None:
@@ -321,7 +323,6 @@ class Window():
         )     
         
         direction = tree.alpha_beta(initial_depth, float('-inf'), float('+inf'), True)  
-        print(direction)
         if direction != None: self.board.pacman.change_direction(direction.name.capitalize())
         self.board.update_board()           
 

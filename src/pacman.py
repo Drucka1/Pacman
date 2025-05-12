@@ -17,7 +17,7 @@ class Pacman(Character):
         self.lives = Pacman.three_lives
         self.level = Pacman.level_one
 
-        self.last_direction, self.next_direction = 'Left', None
+        self.last_direction, self.next_direction = None, None
         self.is_respawning = False
         self.direction_image(images)
 
